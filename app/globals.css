@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/* Stepay color scheme: Teal & Gold - trust + value */
+:root {
+  /* Backgrounds */
+  --background: #f8fafc;
+  --background-warm: #fafaf9;
+  --surface: #ffffff;
+  --surface-muted: rgba(248, 250, 252, 0.8);
+  
+  /* Text */
+  --foreground: #0f172a;
+  --foreground-muted: #64748b;
+  --foreground-subtle: #94a3b8;
+  
+  /* Primary: Teal - trust, stability */
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-muted: #ccfbf1;
+  --primary-focus: rgba(13, 148, 136, 0.2);
+  
+  /* Accent: Amber - value, money */
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-muted: #fef3c7;
+  
+  /* Semantic */
+  --success: #059669;
+  --success-muted: #d1fae5;
+  --error: #dc2626;
+  --error-muted: #fee2e2;
+  --warning: #d97706;
+  
+  /* Borders */
+  --border: #e2e8f0;
+  --border-subtle: rgba(226, 232, 240, 0.6);
+  
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+  --font-heading: var(--font-outfit), var(--font-dm-sans), system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  padding-top: var(--safe-area-inset-top);
+}
+
+/* Distinctive heading font */
+h1, h2, h3, .font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Stepay brand motif - stepped gradient bars */
+.stepay-motif {
+  background: linear-gradient(135deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(13, 148, 136, 0.04) 45%,
+    rgba(217, 119, 6, 0.06) 55%,
+    transparent 60%,
+    transparent 100%
+  );
+}
+
+/* Subtle dot grid pattern */
+.stepay-dots {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Organic blob gradient */
+.stepay-blob {
+  background: 
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(13, 148, 136, 0.12), transparent),
+    radial-gradient(ellipse 60% 80% at 20% 80%, rgba(217, 119, 6, 0.08), transparent);
+}
+
+/* Minimum touch target size for accessibility */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Refined focus ring */
+input:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
