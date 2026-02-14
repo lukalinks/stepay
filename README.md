@@ -21,7 +21,14 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    - In the SQL Editor, run the migration from `supabase/migrations/00001_init_schema.sql`
    - Copy your Project URL and Service Role Key from Settings → API
 
-3. **Environment Variables**
+3. **Lenco Webhook** (Required for deposit confirmations)
+   In your [Lenco Dashboard](https://api.lenco.co), add this webhook URL:
+   ```
+   https://stepay.vercel.app/api/hooks/lenco
+   ```
+   Lenco will POST to this endpoint when mobile money payments succeed. Ensure `LENCO_WEBHOOK_SECRET` is set for signature verification.
+
+4. **Environment Variables**
    Create a `.env` file in the root directory:
    ```env
    # Supabase
@@ -38,7 +45,7 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    PLATFORM_WALLET_PUBLIC_KEY="G..."
    ```
 
-4. **Run Development Server**
+5. **Run Development Server**
    ```bash
    npm run dev
    ```
