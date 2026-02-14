@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { parseStellarError } from '@/lib/stellar-error';
+import { LencoService } from '@/lib/lenco';
 import { createHmac, createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -91,6 +92,24 @@ export async function POST(request: Request) {
                 if (tx.status === 'COMPLETED') {
                     console.log(`Lenco webhook: reference ${reference} already completed, skipping (idempotent)`);
                     return NextResponse.json({ received: true });
+                }
+
+                const skipVerification = process.env.LENCO_SKIP_DEPOSIT_VERIFICATION === 'true';
+                if (!skipVerification) {
+                    const lencoTx = await LencoService.getTransactionByReference(reference);
+                    if (lencoTx) {
+                        if (lencoTx.status !== 'successful') {
+                            console.log(`Lenco webhook: reference ${reference} not successful (status=${lencoTx.status}), skipping`);
+                            return NextResponse.json({ received: true });
+                        }
+                        if (lencoTx.type !== 'credit') {
+                            console.log(`Lenco webhook: reference ${reference} is not a collection/credit (type=${lencoTx.type}), skipping`);
+                            return NextResponse.json({ received: true });
+                        }
+                    } else {
+                        console.warn(`Lenco webhook: could not verify reference ${reference} with Lenco API, aborting deposit for safety`);
+                        return NextResponse.json({ received: true });
+                    }
                 }
 
                 const { data: user } = await supabase

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
-import { XLM_RATE_ZMW, USDC_RATE_ZMW } from '@/lib/constants';
+import { getRates } from '@/lib/rates';
 import { cookies } from 'next/headers';
 
 export async function GET() {
@@ -30,9 +30,10 @@ export async function GET() {
             .order('created_at', { ascending: false })
             .limit(10);
 
-        const [xlmBalance, usdcBalance] = await Promise.all([
+        const [xlmBalance, usdcBalance, rates] = await Promise.all([
             StellarService.getBalance(user.wallet_public),
             StellarService.getUSDCBalance(user.wallet_public),
+            getRates(),
         ]);
 
         const transactionsForFrontend = (transactions ?? []).map((tx) => ({
@@ -50,14 +51,16 @@ export async function GET() {
 
         return NextResponse.json({
             user: {
+                email: user.email,
                 phone: user.phone_number,
                 walletPublic: user.wallet_public,
+                role: (user as { role?: string }).role || 'user',
             },
             balance: {
                 xlm: xlmBalance,
                 usdc: usdcBalance,
-                xlmZmwEquiv: (Number(xlmBalance) * XLM_RATE_ZMW).toFixed(2),
-                usdcZmwEquiv: (Number(usdcBalance) * USDC_RATE_ZMW).toFixed(2),
+                xlmZmwEquiv: (Number(xlmBalance) * rates.xlm_sell).toFixed(2),
+                usdcZmwEquiv: (Number(usdcBalance) * rates.usdc_sell).toFixed(2),
             },
             transactions: transactionsForFrontend,
         });

@@ -3,7 +3,7 @@ import { LencoService } from '@/lib/lenco';
 import { supabase } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { XLM_RATE_ZMW, USDC_RATE_ZMW } from '@/lib/constants';
+import { getRates, getFees, zmwToCrypto } from '@/lib/rates';
 
 const schema = z.object({
     amount: z.coerce.number().min(1),
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        const rate = asset === 'usdc' ? USDC_RATE_ZMW : XLM_RATE_ZMW;
-        const amountCrypto = amount / rate;
+        const [rates, fees] = await Promise.all([getRates(), getFees()]);
+        const amountCrypto = zmwToCrypto(amount, asset, rates, fees);
         const minZmw = asset === 'xlm' ? 4 : 25; // XLM: 1 XLM reserve; USDC: ~1 USDC min
         if (amount < minZmw) {
             return NextResponse.json({
@@ -73,9 +73,15 @@ export async function POST(request: Request) {
                 operator: operator ?? 'mtn',
                 reference,
             });
-            await supabase.from('users').update({ preferred_operator: operator ?? 'mtn' }).eq('id', userId);
+            const normalizedPhone = phone.replace(/\s+/g, '').replace(/^0/, '');
+            const phoneForDb = normalizedPhone.startsWith('+260') ? normalizedPhone : normalizedPhone.startsWith('260') ? `+${normalizedPhone}` : `+260${normalizedPhone}`;
+            await supabase.from('users').update({
+                preferred_operator: operator ?? 'mtn',
+                phone_number: phoneForDb,
+            }).eq('id', userId);
         } catch (lencoError: any) {
             const msg = lencoError?.message || 'Mobile money collection failed';
+            await supabase.from('transactions').delete().eq('id', transaction.id);
             return NextResponse.json({ success: false, error: msg }, { status: 400 });
         }
 
@@ -88,7 +94,14 @@ export async function POST(request: Request) {
         });
     } catch (error: any) {
         console.error('Buy API Error:', error);
-        const message = error?.message || 'Failed to process buy request';
+        let message = error?.message || 'Failed to process buy request';
+        if (error?.name === 'ZodError' && Array.isArray(error?.issues) && error.issues[0]) {
+            const first = error.issues[0];
+            const path = first?.path?.[0];
+            if (path === 'amount') message = 'Please enter a valid amount (minimum 1 ZMW)';
+            else if (path === 'phone') message = 'Please enter a valid Zambian mobile number (at least 10 digits)';
+            else if (path === 'operator') message = 'Please select MTN, Airtel, or Zamtel';
+        }
         const status = error?.name === 'ZodError' ? 400 : 500;
         return NextResponse.json({ success: false, error: message }, { status });
     }

@@ -10,7 +10,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServic
 // Types matching our schema
 export interface DbUser {
   id: string;
-  phone_number: string;
+  email?: string | null;
+  auth_id?: string | null;
+  phone_number?: string | null;
   pin_hash: string;
   wallet_secret: string;
   wallet_public: string;

@@ -21,10 +21,10 @@ export default function LandingPage() {
               Login
             </Link>
             <Link
-              href="/login?next=/dashboard"
+              href="/signup?next=/dashboard"
               className="rounded-lg bg-slate-900 px-4 py-2.5 min-h-[44px] flex items-center text-sm font-semibold text-white transition-all hover:bg-slate-800 active:scale-[0.98] sm:px-5"
             >
-              Get Started
+              Sign up
             </Link>
           </>
         }
@@ -48,7 +48,7 @@ export default function LandingPage() {
                 </p>
                 <div className="mt-10">
                   <Link
-                    href="/login?next=/dashboard/buy"
+                    href="/signup?next=/dashboard/buy"
                     className="inline-flex items-center justify-center gap-2 min-h-[48px] px-8 bg-slate-900 text-white text-base font-semibold rounded-lg hover:bg-slate-800 transition-colors active:scale-[0.98] group"
                   >
                     Start Depositing <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 shrink-0" />
@@ -195,7 +195,7 @@ export default function LandingPage() {
               Move between ZMW and crypto in minutes. No bank account required.
             </p>
             <Link
-              href="/login?next=/dashboard"
+              href="/signup?next=/dashboard"
               className="mt-10 inline-flex items-center justify-center min-h-[52px] w-full sm:w-auto px-12 bg-teal-500 text-white rounded-xl text-base font-semibold hover:bg-teal-600 transition-colors active:scale-[0.98] shadow-lg shadow-teal-500/25"
             >
               Get Started

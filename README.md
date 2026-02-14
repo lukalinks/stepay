@@ -18,8 +18,9 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
 
 2. **Supabase Setup**
    - Create a project at [supabase.com](https://supabase.com)
-   - In the SQL Editor, run the migration from `supabase/migrations/00001_init_schema.sql`
-   - Copy your Project URL and Service Role Key from Settings → API
+   - In the SQL Editor, run migrations in order: `00001_init_schema.sql` then `00002_add_email_auth.sql`
+   - Copy Project URL, anon key, and Service Role Key from Settings → API
+   - For password auth: Supabase → Auth → Providers → Email — ensure "Confirm email" is off if you want immediate sign-in for new users
 
 3. **Lenco Webhook** (Required for deposit confirmations)
    - Add this webhook URL in Lenco Dashboard (contact [Lenco support](mailto:support@lenco.co) if needed):
@@ -34,6 +35,7 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    ```env
    # Supabase
    NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+   NEXT_PUBLIC_SUPABASE_ANON_KEY="your_anon_key"   # Required for email magic link auth
    SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
 
    # Lenco Mobile Money (https://api.lenco.co/access/v2)

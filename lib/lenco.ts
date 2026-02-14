@@ -134,4 +134,28 @@ export class LencoService {
       throw error;
     }
   }
+
+  /**
+   * Fetch transaction by client reference - used to verify collection succeeded before sending crypto.
+   * Returns { status: 'successful' | 'failed' | ..., type: 'credit' | 'debit' }.
+   * For collections (user pays us), expect type=credit, status=successful.
+   */
+  static async getTransactionByReference(reference: string): Promise<{ status: string; type: string } | null> {
+    if (!LENCO_SECRET_KEY) return null;
+    try {
+      const baseUrl = (LENCO_API_URL || '').replace(/\/access\/v\d+$/, '/access/v1');
+      const url = `${baseUrl}/transaction-by-reference/${encodeURIComponent(reference)}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: LencoService.getHeaders(),
+      });
+      const result = await response.json().catch(() => ({}));
+      const data = result?.data;
+      if (!data) return null;
+      return { status: data.status || '', type: data.type || '' };
+    } catch (error: any) {
+      console.error('Lenco getTransactionByReference:', error?.message);
+      return null;
+    }
+  }
 }

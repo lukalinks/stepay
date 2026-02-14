@@ -1,23 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
 
-const RATES = { xlm: 3.5, usdc: 25 } as const;
+const DEFAULT_RATES = { xlm: { sell: 3.5 }, usdc: { sell: 25 } } as const;
 
 export default function SellPage() {
     const [asset, setAsset] = useState<'xlm' | 'usdc'>('xlm');
     const [amount, setAmount] = useState('');
+    const [phone, setPhone] = useState('');
+    const [operator, setOperator] = useState<'mtn' | 'airtel' | 'zamtel'>('mtn');
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [rates, setRates] = useState<{ xlm: { sell: number }; usdc: { sell: number } }>(DEFAULT_RATES);
+
+    useEffect(() => {
+        fetch('/api/rates')
+            .then((res) => res.ok ? res.json() : null)
+            .then((data) => {
+                if (data?.rates) setRates(data.rates);
+            })
+            .catch(() => {});
+    }, []);
 
     const handleSell = async (e: React.FormEvent) => {
         e.preventDefault();
         const min = asset === 'usdc' ? 1 : 3;
         if (!amount || Number(amount) < min) {
             setError(`Please enter at least ${min} ${asset.toUpperCase()} to cash out`);
+            return;
+        }
+        const phoneClean = phone.replace(/\s+/g, '').replace(/^0/, '');
+        const phoneDigits = phoneClean.replace(/\D/g, '');
+        if (!phoneDigits || phoneDigits.length < 10) {
+            setError('Please enter a valid Zambian mobile number to receive funds');
             return;
         }
         setIsLoading(true);
@@ -28,7 +46,7 @@ export default function SellPage() {
             const res = await fetch('/api/sell', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount, asset }),
+                body: JSON.stringify({ amount, asset, phone: phone.trim(), operator }),
             });
             const data = await res.json().catch(() => ({}));
 
@@ -66,7 +84,7 @@ export default function SellPage() {
                         <h3 className="text-xl font-bold text-slate-900 mb-2">Cash Out Complete!</h3>
                         <p className="text-slate-600 mb-6">{message}</p>
                         <button
-                            onClick={() => { setStatus('idle'); setAmount(''); setMessage(''); }}
+                            onClick={() => { setStatus('idle'); setAmount(''); setPhone(''); setMessage(''); }}
                             className="w-full min-h-[48px] py-3 bg-slate-100 rounded-xl font-semibold hover:bg-slate-200 active:bg-slate-300 transition-colors"
                         >
                             Cash Out More
@@ -105,7 +123,33 @@ export default function SellPage() {
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">{asset.toUpperCase()}</span>
                             </div>
-                            <p className="text-sm text-slate-500 mt-2">≈ ZMW {(Number(amount || 0) * RATES[asset]).toFixed(2)} to your mobile money</p>
+                            <p className="text-sm text-slate-500 mt-2">≈ ZMW {(Number(amount || 0) * rates[asset].sell).toFixed(2)} to your mobile money</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Network</label>
+                            <select
+                                value={operator}
+                                onChange={(e) => { setOperator(e.target.value as 'mtn' | 'airtel' | 'zamtel'); setError(''); }}
+                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
+                            >
+                                <option value="mtn">MTN</option>
+                                <option value="airtel">Airtel</option>
+                                <option value="zamtel">Zamtel</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Number to Receive ZMW</label>
+                            <input
+                                type="tel"
+                                value={phone}
+                                onChange={(e) => { setPhone(e.target.value); setError(''); }}
+                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
+                                placeholder="+260 97 123 4567"
+                                inputMode="tel"
+                                required
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Zambian number where you&apos;ll receive the cash</p>
                         </div>
 
                         <div className="rounded-xl bg-teal-50 border border-teal-100 p-3 text-sm text-teal-800">

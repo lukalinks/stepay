@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { ArrowUpRight, ArrowDownLeft, Wallet, Loader2, Send, ChevronDown, ChevronUp, ExternalLink, Copy } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { DepositModal } from '@/components/DepositModal';
 
 function formatStatus(status: string): string {
     const s = (status || '').toUpperCase();
@@ -126,9 +127,10 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
 export default function DashboardPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [depositModalOpen, setDepositModalOpen] = useState(false);
     const router = useRouter();
 
-    useEffect(() => {
+    const fetchData = useCallback(() => {
         fetch('/api/user')
             .then(res => {
                 if (res.status === 401) {
@@ -147,6 +149,10 @@ export default function DashboardPage() {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [router]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     if (loading) {
         return (
@@ -186,7 +192,14 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-heading">Dashboard</h1>
-                    <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Welcome back, {data.user?.phone}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Welcome back, {data.user?.email || data.user?.phone || 'there'}</p>
+                        {data.user?.role === 'admin' && (
+                            <Link href="/admin" className="text-xs text-teal-600 hover:text-teal-700 font-medium">
+                                Admin →
+                            </Link>
+                        )}
+                    </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Your Stellar Wallet</p>
@@ -248,10 +261,14 @@ export default function DashboardPage() {
                 <div className="hidden sm:flex bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm flex-col justify-center gap-4 sm:col-span-2 lg:col-span-1">
                     <h3 className="font-semibold text-slate-700 text-sm">Quick Actions</h3>
                     <div className="grid grid-cols-3 gap-3">
-                        <Link href="/dashboard/buy" className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all gap-2 group">
+                        <button
+                            type="button"
+                            onClick={() => setDepositModalOpen(true)}
+                            className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all gap-2 group"
+                        >
                             <ArrowDownLeft className="w-6 h-6 group-hover:scale-110 transition-transform" />
                             <span className="font-medium text-sm">Deposit</span>
-                        </Link>
+                        </button>
                         <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl transition-all gap-2 group">
                             <ArrowUpRight className="w-6 h-6 group-hover:scale-110 transition-transform" />
                             <span className="font-medium text-sm">Cash Out</span>
@@ -276,9 +293,13 @@ export default function DashboardPage() {
                     {data.transactions.length === 0 ? (
                         <div className="p-8 sm:p-12 text-center text-slate-500 text-sm sm:text-base">
                             <p className="mb-2">No transactions yet.</p>
-                            <Link href="/dashboard/buy" className="text-teal-600 hover:text-teal-700 font-medium transition-colors">
+                            <button
+                                type="button"
+                                onClick={() => setDepositModalOpen(true)}
+                                className="text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                            >
                                 Start depositing →
-                            </Link>
+                            </button>
                         </div>
                     ) : (
                         data.transactions.slice(0, 3).map((tx: any) => (
@@ -294,6 +315,12 @@ export default function DashboardPage() {
                     </div>
                 )}
             </div>
+
+            <DepositModal
+                isOpen={depositModalOpen}
+                onClose={() => setDepositModalOpen(false)}
+                onSuccess={fetchData}
+            />
         </div>
     );
 }

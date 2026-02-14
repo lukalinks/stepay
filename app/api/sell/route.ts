@@ -4,7 +4,8 @@ import { StellarService } from '@/lib/stellar';
 import { LencoService } from '@/lib/lenco';
 import { parseStellarError } from '@/lib/stellar-error';
 import { cookies } from 'next/headers';
-import { PLATFORM_WALLET_PUBLIC, XLM_RATE_ZMW, USDC_RATE_ZMW } from '@/lib/constants';
+import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
+import { getRates, getFees, cryptoToZmw } from '@/lib/rates';
 
 export async function GET() {
     return NextResponse.json({ message: 'Use POST to cash out. See docs for payload.' });
@@ -13,7 +14,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));
-        const { amount, asset = 'xlm' } = body || {};
+        const { amount, asset = 'xlm', phone: reqPhone, operator: reqOperator } = body || {};
 
         const cookieStore = await cookies();
         const userId = cookieStore.get('stepay_user')?.value;
@@ -43,6 +44,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: `Minimum ${minAmount} ${assetLabel} to sell` }, { status: 400 });
         }
 
+        const phoneRaw = typeof reqPhone === 'string' ? reqPhone.trim() : '';
+        const phoneDigits = phoneRaw.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
+        const phoneForPayout = phoneDigits.length >= 10 ? phoneRaw : (user.phone_number?.trim() || '');
+        const phoneDigitsFinal = phoneForPayout.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
+        if (phoneDigitsFinal.length < 10) {
+            return NextResponse.json({ success: false, error: 'Please enter a valid mobile number to receive the cash' }, { status: 400 });
+        }
+        const operator = ['mtn', 'airtel', 'zamtel'].includes(reqOperator) ? reqOperator : (user.preferred_operator || 'mtn') as 'mtn' | 'airtel' | 'zamtel';
+
         const walletSecret = user.wallet_secret ?? (user as { walletSecret?: string }).walletSecret;
         const walletPublic = user.wallet_public ?? (user as { walletPublic?: string }).walletPublic;
         if (!walletSecret || !walletPublic) {
@@ -68,8 +78,8 @@ export async function POST(request: Request) {
             );
         }
 
-        const rate = asset === 'usdc' ? USDC_RATE_ZMW : XLM_RATE_ZMW;
-        const amountFiat = amountNum * rate;
+        const [rates, fees] = await Promise.all([getRates(), getFees()]);
+        const amountFiat = cryptoToZmw(amountNum, asset, rates, fees);
         const depositMemo = Math.floor(100000 + Math.random() * 900000).toString();
         const reference = `SELL-${Date.now()}`;
 
@@ -110,22 +120,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: errMsg }, { status: 400 });
         }
 
-        // Initiate Lenco payout to user's phone
-        const phone = user.phone_number?.trim();
-        if (!phone || phone.length < 10) {
-            await supabase.from('transactions').update({ status: 'COMPLETED', tx_hash: txHash }).eq('id', txRecord.id);
-            return NextResponse.json({
-                success: true,
-                message: `${amountNum} ${assetLabel} sold. ZMW ${amountFiat.toFixed(2)} owed – contact support (ref: ${reference}) for payout.`,
-                amountFiat,
-                txHash,
-            });
-        }
+        // Initiate Lenco payout to requested phone
+        const phone = phoneForPayout;
 
         const payoutEnabled = process.env.LENCO_PAYOUT_ENABLED !== 'false';
         if (payoutEnabled && amountFiat >= 1) {
             try {
-                const operator = (user.preferred_operator || 'mtn') as 'mtn' | 'airtel' | 'zamtel';
                 await LencoService.createPayout({
                     amount: amountFiat,
                     phone,

@@ -1,28 +1,20 @@
-import type { Metadata, Viewport } from "next";
-import { Outfit, DM_Sans } from "next/font/google";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: "swap",
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
-  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Stepay - Deposit & Cash Out XLM with Mobile Money",
-  description: "Deposit and cash out XLM and USDC on Stellar instantly using Mobile Money. Built for Africa.",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 5,
+  title: "Stepay - Buy & Sell XLM with Mobile Money",
+  description: "Buy and sell XLM and USDC on Stellar instantly using Mobile Money. Built for Africa.",
 };
 
 export default function RootLayout({
@@ -33,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${outfit.variable} ${dmSans.variable} font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
       </body>
