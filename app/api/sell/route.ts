@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         }
 
         const amountNum = Number(amount);
-        const minAmount = asset === 'usdc' ? 1 : 0.1;
+        const minAmount = asset === 'usdc' ? 1 : 3;
         const assetLabel = asset === 'usdc' ? 'USDC' : 'XLM';
 
         if (amount === undefined || amount === null || amount === '') {

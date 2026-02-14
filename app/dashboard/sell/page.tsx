@@ -15,7 +15,7 @@ export default function SellPage() {
 
     const handleSell = async (e: React.FormEvent) => {
         e.preventDefault();
-        const min = asset === 'usdc' ? 1 : 0.1;
+        const min = asset === 'usdc' ? 1 : 3;
         if (!amount || Number(amount) < min) {
             setError(`Please enter at least ${min} ${asset.toUpperCase()} to cash out`);
             return;
@@ -99,7 +99,7 @@ export default function SellPage() {
                                     onChange={(e) => { setAmount(e.target.value); setError(''); }}
                                     className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
                                     placeholder="0.00"
-                                    min={asset === 'usdc' ? 1 : 0.1}
+                                    min={asset === 'usdc' ? 1 : 3}
                                     step={asset === 'usdc' ? 0.01 : 0.0000001}
                                     required
                                 />
