@@ -5,6 +5,14 @@ import { ArrowUpRight, ArrowDownLeft, Wallet, Loader2, Send, ChevronDown, Chevro
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+function formatStatus(status: string): string {
+    const s = (status || '').toUpperCase();
+    if (s === 'PENDING') return 'Pending';
+    if (s === 'COMPLETED') return 'Completed';
+    if (s === 'FAILED') return 'Failed';
+    return status || 'Pending';
+}
+
 function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string; amountXLM: number; amountFiat: number; status: string; reference: string; txHash: string | null; createdAt: string; depositMemo?: string } }) {
     const [expanded, setExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -51,7 +59,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                         <p className={`font-bold ${amountColor}`}>
                             {tx.type === 'BUY' ? '+' : '-'}{tx.amountXLM} {assetLabel}
                         </p>
-                        <p className="text-xs text-slate-500">{tx.status}</p>
+                        <p className="text-xs text-slate-500">{formatStatus(tx.status)}</p>
                     </div>
                     {expanded ? <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
                 </div>

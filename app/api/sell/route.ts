@@ -6,6 +6,10 @@ import { parseStellarError } from '@/lib/stellar-error';
 import { cookies } from 'next/headers';
 import { PLATFORM_WALLET_PUBLIC, XLM_RATE_ZMW, USDC_RATE_ZMW } from '@/lib/constants';
 
+export async function GET() {
+    return NextResponse.json({ message: 'Use POST to cash out. See docs for payload.' });
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));

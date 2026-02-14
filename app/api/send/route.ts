@@ -21,6 +21,10 @@ function formatAddress(addr: string): string {
     return addr.trim().toUpperCase();
 }
 
+export async function GET() {
+    return NextResponse.json({ message: 'Use POST to send XLM/USDC. See docs for payload.' });
+}
+
 export async function POST(request: Request) {
     try {
         const cookieStore = await cookies();

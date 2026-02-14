@@ -3,6 +3,10 @@ import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { cookies } from 'next/headers';
 
+export async function GET() {
+    return NextResponse.json({ message: 'Use POST with { phone } to log in.' });
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();

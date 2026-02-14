@@ -22,11 +22,12 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    - Copy your Project URL and Service Role Key from Settings → API
 
 3. **Lenco Webhook** (Required for deposit confirmations)
-   In your [Lenco Dashboard](https://api.lenco.co), add this webhook URL:
-   ```
-   https://stepay.vercel.app/api/hooks/lenco
-   ```
-   Lenco will POST to this endpoint when mobile money payments succeed. Ensure `LENCO_WEBHOOK_SECRET` is set for signature verification.
+   - Add this webhook URL in Lenco Dashboard (contact [Lenco support](mailto:support@lenco.co) if needed):
+     ```
+     https://stepay.vercel.app/api/hooks/lenco
+     ```
+   - Verify it's reachable: open `https://stepay.vercel.app/api/hooks/lenco` in a browser – you should see `{"ok":true,...}`.
+   - Set `LENCO_WEBHOOK_SECRET` in Vercel env vars: use `SHA256(LENCO_SECRET_KEY)` as hex, or the value Lenco provides.
 
 4. **Environment Variables**
    Create a `.env` file in the root directory:

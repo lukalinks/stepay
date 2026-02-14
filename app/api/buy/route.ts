@@ -12,6 +12,10 @@ const schema = z.object({
     asset: z.enum(['xlm', 'usdc']).default('xlm'),
 });
 
+export async function GET() {
+    return NextResponse.json({ message: 'Use POST to create a deposit. See docs for payload.' });
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
