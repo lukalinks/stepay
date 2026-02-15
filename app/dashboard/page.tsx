@@ -6,11 +6,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DepositModal } from '@/components/DepositModal';
 
-function formatStatus(status: string): string {
+function formatStatus(status: string, type?: string): string {
     const s = (status || '').toUpperCase();
-    if (s === 'PENDING') return 'Pending';
     if (s === 'COMPLETED') return 'Completed';
     if (s === 'FAILED') return 'Failed';
+    if (s === 'PENDING' && type === 'BUY') return 'Awaiting payment';
+    if (s === 'PENDING') return 'Pending';
     return status || 'Pending';
 }
 
@@ -69,7 +70,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                         <p className={`font-bold text-[15px] ${amountColor}`}>
                             {tx.type === 'BUY' ? '+' : '-'}{formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
-                        <p className={`text-xs font-medium mt-0.5 ${statusStyles}`}>{formatStatus(tx.status)}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${statusStyles}`}>{formatStatus(tx.status, tx.type)}</p>
                     </div>
                     {expanded ? <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
                 </div>
@@ -186,6 +187,13 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const hasPendingDeposits = data?.transactions?.some((tx: { type: string; status: string }) => tx.type === 'BUY' && tx.status === 'PENDING');
+    useEffect(() => {
+        if (!hasPendingDeposits) return;
+        const interval = setInterval(fetchData, 10000);
+        return () => clearInterval(interval);
+    }, [hasPendingDeposits, fetchData]);
 
     if (loading) {
         return (

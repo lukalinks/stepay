@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { ArrowUpRight, ArrowDownLeft, Loader2, Send, ChevronDown, ChevronUp, ExternalLink, Copy, History } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
-function formatStatus(status: string): string {
+function formatStatus(status: string, type?: string): string {
     const s = (status || '').toUpperCase();
-    if (s === 'PENDING') return 'Pending';
     if (s === 'COMPLETED') return 'Completed';
     if (s === 'FAILED') return 'Failed';
+    if (s === 'PENDING' && type === 'BUY') return 'Awaiting payment';
+    if (s === 'PENDING') return 'Pending';
     return status || 'Pending';
 }
 
@@ -67,7 +68,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                         <p className={`font-bold ${amountColor}`}>
                             {tx.type === 'BUY' ? '+' : '-'}{formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
-                        <p className="text-xs text-slate-500">{formatStatus(tx.status)}</p>
+                        <p className="text-xs text-slate-500">{formatStatus(tx.status, tx.type)}</p>
                     </div>
                     {expanded ? <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
                 </div>
@@ -136,7 +137,7 @@ export default function TransactionsPage() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
+    const fetchData = useCallback(() => {
         fetch('/api/transactions')
             .then(res => {
                 if (res.status === 401) {
@@ -155,6 +156,17 @@ export default function TransactionsPage() {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [router]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const hasPending = data?.transactions?.some((tx: { status: string }) => tx.status === 'PENDING');
+    useEffect(() => {
+        if (!hasPending) return;
+        const interval = setInterval(fetchData, 10000);
+        return () => clearInterval(interval);
+    }, [hasPending, fetchData]);
 
     if (loading) {
         return (
@@ -200,7 +212,7 @@ export default function TransactionsPage() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-4 sm:p-6 border-b border-slate-200/60 flex justify-between items-center">
                     <h3 className="font-bold text-slate-900 font-heading">All Transactions</h3>
-                    <button onClick={() => window.location.reload()} className="text-sm text-teal-600 hover:text-teal-700 font-medium py-2 px-3 -m-2 min-h-[44px] flex items-center transition-colors">
+                    <button onClick={fetchData} className="text-sm text-teal-600 hover:text-teal-700 font-medium py-2 px-3 -m-2 min-h-[44px] flex items-center transition-colors">
                         Refresh
                     </button>
                 </div>
