@@ -136,9 +136,8 @@ export class LencoService {
   }
 
   /**
-   * Fetch transaction by client reference - used to verify collection succeeded before sending crypto.
+   * Fetch transaction by client reference (v1) - used for some transaction types.
    * Returns { status: 'successful' | 'failed' | ..., type: 'credit' | 'debit' }.
-   * For collections (user pays us), expect type=credit, status=successful.
    */
   static async getTransactionByReference(reference: string): Promise<{ status: string; type: string } | null> {
     if (!LENCO_SECRET_KEY) return null;
@@ -152,9 +151,31 @@ export class LencoService {
       const result = await response.json().catch(() => ({}));
       const data = result?.data;
       if (!data) return null;
-      return { status: data.status || '', type: data.type || '' };
+      return { status: (data.status || '').toLowerCase(), type: (data.type || '').toLowerCase() };
     } catch (error: any) {
       console.error('Lenco getTransactionByReference:', error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch mobile money collection status by reference (v2).
+   * Use this for deposits - status is 'pending' | 'successful' | 'failed' | 'pay-offline' etc.
+   */
+  static async getCollectionByReference(reference: string): Promise<{ status: string } | null> {
+    if (!LENCO_SECRET_KEY) return null;
+    try {
+      const url = `${LENCO_API_URL}/collections/status/${encodeURIComponent(reference)}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: LencoService.getHeaders(),
+      });
+      const result = await response.json().catch(() => ({}));
+      const data = result?.data;
+      if (!data) return null;
+      return { status: (data.status || '').toLowerCase() };
+    } catch (error: any) {
+      console.error('Lenco getCollectionByReference:', error?.message);
       return null;
     }
   }

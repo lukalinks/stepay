@@ -24,13 +24,14 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    - For forgot password: Supabase → Auth → URL Configuration — add your site URL (e.g. `https://stepay.vercel.app`) and `https://stepay.vercel.app/reset-password` to Redirect URLs
    - **Vercel**: Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in Project → Settings → Environment Variables (the anon key is sometimes named `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` in Supabase—both work)
 
-3. **Lenco Webhook** (Required for deposit confirmations)
+3. **Lenco Webhook** (Optional but recommended for instant deposit confirmations)
    - Add this webhook URL in Lenco Dashboard (contact [Lenco support](mailto:support@lenco.co) if needed):
      ```
      https://stepay.vercel.app/api/hooks/lenco
      ```
    - Verify it's reachable: open `https://stepay.vercel.app/api/hooks/lenco` in a browser – you should see `{"ok":true,...}`.
    - Set `LENCO_WEBHOOK_SECRET` in Vercel env vars: use `SHA256(LENCO_SECRET_KEY)` as hex, or the value Lenco provides.
+   - **Fallback**: If the webhook is not configured, a cron job runs every 2 minutes to poll Lenco and complete approved deposits. Set `CRON_SECRET` (e.g. `openssl rand -hex 32`) in Vercel to secure the cron endpoint.
 
 4. **Environment Variables**
    Create a `.env` file in the root directory:

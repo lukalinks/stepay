@@ -96,18 +96,18 @@ export async function POST(request: Request) {
 
                 const skipVerification = process.env.LENCO_SKIP_DEPOSIT_VERIFICATION === 'true';
                 if (!skipVerification) {
-                    const lencoTx = await LencoService.getTransactionByReference(reference);
-                    if (lencoTx) {
-                        if (lencoTx.status !== 'successful') {
-                            console.log(`Lenco webhook: reference ${reference} not successful (status=${lencoTx.status}), skipping`);
-                            return NextResponse.json({ received: true });
-                        }
-                        if (lencoTx.type !== 'credit') {
-                            console.log(`Lenco webhook: reference ${reference} is not a collection/credit (type=${lencoTx.type}), skipping`);
-                            return NextResponse.json({ received: true });
-                        }
+                    let isVerified = false;
+                    const collection = await LencoService.getCollectionByReference(reference);
+                    if (collection && collection.status === 'successful') {
+                        isVerified = true;
                     } else {
-                        console.warn(`Lenco webhook: could not verify reference ${reference} with Lenco API, aborting deposit for safety`);
+                        const lencoTx = await LencoService.getTransactionByReference(reference);
+                        if (lencoTx && lencoTx.status === 'successful' && lencoTx.type === 'credit') {
+                            isVerified = true;
+                        }
+                    }
+                    if (!isVerified) {
+                        console.log(`Lenco webhook: reference ${reference} not yet successful or unverified, skipping`);
                         return NextResponse.json({ received: true });
                     }
                 }
