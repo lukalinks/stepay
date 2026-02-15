@@ -97,7 +97,7 @@ export default function AdminSettingsPage() {
                                 type="number"
                                 step="0.01"
                                 value={rates.xlm_buy}
-                                onChange={(e) => setRates({ ...rates, xlm_buy: e.target.value })}
+                                onChange={(e) => setRates({ ...rates, xlm_buy: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
@@ -107,7 +107,7 @@ export default function AdminSettingsPage() {
                                 type="number"
                                 step="0.01"
                                 value={rates.xlm_sell}
-                                onChange={(e) => setRates({ ...rates, xlm_sell: e.target.value })}
+                                onChange={(e) => setRates({ ...rates, xlm_sell: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
@@ -117,7 +117,7 @@ export default function AdminSettingsPage() {
                                 type="number"
                                 step="0.01"
                                 value={rates.usdc_buy}
-                                onChange={(e) => setRates({ ...rates, usdc_buy: e.target.value })}
+                                onChange={(e) => setRates({ ...rates, usdc_buy: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
@@ -127,7 +127,7 @@ export default function AdminSettingsPage() {
                                 type="number"
                                 step="0.01"
                                 value={rates.usdc_sell}
-                                onChange={(e) => setRates({ ...rates, usdc_sell: e.target.value })}
+                                onChange={(e) => setRates({ ...rates, usdc_sell: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
@@ -146,7 +146,7 @@ export default function AdminSettingsPage() {
                                 min="0"
                                 max="100"
                                 value={fees.buy_percent}
-                                onChange={(e) => setFees({ ...fees, buy_percent: e.target.value })}
+                                onChange={(e) => setFees({ ...fees, buy_percent: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
@@ -158,7 +158,7 @@ export default function AdminSettingsPage() {
                                 min="0"
                                 max="100"
                                 value={fees.sell_percent}
-                                onChange={(e) => setFees({ ...fees, sell_percent: e.target.value })}
+                                onChange={(e) => setFees({ ...fees, sell_percent: parseFloat(e.target.value) || 0 })}
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                         </div>
