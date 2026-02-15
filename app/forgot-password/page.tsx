@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { Logo } from '@/components/Logo';
+import { getSupabaseClientConfig } from '@/lib/supabase-client';
 import { Header } from '@/components/Header';
 import { Loader2, Mail } from 'lucide-react';
 
@@ -25,15 +26,14 @@ export default function ForgotPasswordPage() {
         setError(null);
 
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-            if (!supabaseUrl || !supabaseAnonKey) {
-                setError('Auth is not configured. Please try again later.');
+            const config = getSupabaseClientConfig();
+            if (!config) {
+                setError('Auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment.');
                 setIsLoading(false);
                 return;
             }
 
-            const supabase = createClient(supabaseUrl, supabaseAnonKey);
+            const supabase = createClient(config.url, config.anonKey);
             const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : '/reset-password';
 
             const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {

@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Logo } from '@/components/Logo';
 import { Header } from '@/components/Header';
 import { Loader2 } from 'lucide-react';
+import { getSupabaseClientConfig } from '@/lib/supabase-client';
 
 function ResetPasswordContent() {
     const router = useRouter();
@@ -16,12 +17,12 @@ function ResetPasswordContent() {
     const [error, setError] = useState<string | null>(null);
     const [ready, setReady] = useState(false);
     const [invalidLink, setInvalidLink] = useState(false);
+    const [authNotConfigured, setAuthNotConfigured] = useState(false);
 
     useEffect(() => {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseAnonKey) {
-            setInvalidLink(true);
+        const config = getSupabaseClientConfig();
+        if (!config) {
+            setAuthNotConfigured(true);
             setReady(true);
             return;
         }
@@ -37,7 +38,7 @@ function ResetPasswordContent() {
             return;
         }
 
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const supabase = createClient(config.url, config.anonKey);
 
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session) {
@@ -69,11 +70,14 @@ function ResetPasswordContent() {
         setError(null);
 
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-            if (!supabaseUrl || !supabaseAnonKey) throw new Error('Auth not configured');
+            const config = getSupabaseClientConfig();
+            if (!config) {
+                setError('Auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment.');
+                setIsLoading(false);
+                return;
+            }
 
-            const supabase = createClient(supabaseUrl, supabaseAnonKey);
+            const supabase = createClient(config.url, config.anonKey);
             const { error: err } = await supabase.auth.updateUser({ password });
 
             if (err) {
@@ -96,6 +100,29 @@ function ResetPasswordContent() {
                 <Header showBack maxWidth="content" />
                 <div className="flex-1 flex items-center justify-center">
                     <Loader2 className="w-10 h-10 animate-spin text-teal-500" />
+                </div>
+            </div>
+        );
+    }
+
+    if (authNotConfigured) {
+        return (
+            <div className="min-h-screen flex flex-col bg-[#faf9f7]">
+                <Header showBack maxWidth="content" />
+                <div className="flex-1 flex items-center justify-center stepay-dots px-4 py-8">
+                    <div className="w-full max-w-md text-center">
+                        <div className="bg-white rounded-3xl shadow-xl border border-slate-200/60 p-8">
+                            <Logo iconOnly size="lg" variant="light" className="mx-auto mb-6" />
+                            <h1 className="text-xl font-bold text-slate-900">Auth not configured</h1>
+                            <p className="mt-2 text-slate-600">
+                                Add <code className="text-sm bg-slate-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+                                <code className="text-sm bg-slate-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment variables (e.g. in Vercel).
+                            </p>
+                            <Link href="/login" className="mt-6 inline-block text-teal-600 text-sm font-medium hover:underline">
+                                Back to sign in
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
