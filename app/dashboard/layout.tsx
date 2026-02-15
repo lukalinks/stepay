@@ -276,7 +276,7 @@ export default function DashboardLayout({
                     return (
                         <Link
                             key={href}
-                            href={href}
+                            href={href as string}
                             className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-2.5 px-2 rounded-xl transition-all duration-200 ${
                                 isActive
                                     ? 'text-teal-600 bg-teal-50'
