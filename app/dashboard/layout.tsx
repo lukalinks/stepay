@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { Home, ArrowLeftRight, Wallet, LogOut, Loader2, Menu, Send, History, X } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, LogOut, Loader2, Menu, Send, History, X, UserCircle } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 
@@ -13,6 +13,7 @@ const navItems = [
     { href: '/dashboard/sell', label: 'Cash Out', icon: Wallet },
     { href: '/dashboard/send', label: 'Send', icon: Send },
     { href: '/dashboard/transactions', label: 'Transactions', icon: History },
+    { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
 ];
 
 export default function DashboardLayout({
@@ -24,6 +25,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const [authChecked, setAuthChecked] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [profileIncomplete, setProfileIncomplete] = useState(false);
 
     useEffect(() => {
         if (mobileMenuOpen) {
@@ -36,11 +38,15 @@ export default function DashboardLayout({
 
     useEffect(() => {
         fetch('/api/user')
-            .then((res) => {
+            .then(async (res) => {
                 if (res.status === 401) {
                     const returnTo = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
                     router.replace(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : '/login');
                     return;
+                }
+                if (res.ok) {
+                    const data = await res.json();
+                    setProfileIncomplete(data.user?.isProfileComplete === false);
                 }
                 setAuthChecked(true);
             })
@@ -181,6 +187,28 @@ export default function DashboardLayout({
             {/* Main Content */}
             <main className="flex-1 overflow-auto pb-24 md:pb-0 min-h-screen">
                 <div className="mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
+                    {profileIncomplete && (
+                        <Link
+                            href={`/profile/complete?next=${encodeURIComponent(pathname)}`}
+                            className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100 hover:border-teal-200 transition-colors group"
+                        >
+                            <div className="flex shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-teal-100 flex items-center justify-center group-hover:bg-teal-200/80 transition-colors">
+                                <UserCircle className="w-6 h-6 sm:w-7 sm:h-7 text-teal-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-base sm:text-lg font-semibold text-slate-800">
+                                    You&apos;re almost set!
+                                </p>
+                                <p className="mt-1 text-sm text-slate-600">
+                                    Add your name, phone, and address so you can easily deposit and cash out. It only takes a minute.
+                                </p>
+                            </div>
+                            <span className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 text-white text-sm font-medium group-hover:bg-teal-700 transition-colors">
+                                Add my details
+                                <span aria-hidden>→</span>
+                            </span>
+                        </Link>
+                    )}
                     {children}
                 </div>
             </main>

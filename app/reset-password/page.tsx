@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { Logo } from '@/components/Logo';
 import { Header } from '@/components/Header';
+import { Message } from '@/components/Message';
 import { Loader2 } from 'lucide-react';
 import { getSupabaseClientConfig } from '@/lib/supabase-client';
 
@@ -169,10 +170,9 @@ function ResetPasswordContent() {
 
                         <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
                             {error && (
-                                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm" role="alert">
-                                    <p className="font-medium">Something went wrong</p>
-                                    <p className="mt-1">{error}</p>
-                                </div>
+                                <Message variant="warning" title="Something went wrong">
+                                    {error}
+                                </Message>
                             )}
                             <div>
                                 <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">New password</label>

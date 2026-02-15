@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Header } from '@/components/Header';
+import { Message } from '@/components/Message';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
@@ -77,9 +78,7 @@ function SignupForm() {
 
                         <form onSubmit={handleSignup} className="space-y-5 sm:space-y-6">
                             {error && (
-                                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm" role="alert">
-                                    {error}
-                                </div>
+                                <Message variant="error">{error}</Message>
                             )}
                             <div>
                                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">Email</label>

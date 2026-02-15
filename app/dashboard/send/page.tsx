@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Send, Loader2, CheckCircle } from 'lucide-react';
+import { Message } from '@/components/Message';
 
 function toFriendlySendError(msg?: string): string {
     if (!msg || msg.toLowerCase().includes('server')) return 'Something went wrong. Please try again in a moment.';
@@ -112,10 +113,9 @@ export default function SendPage() {
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                         {status === 'error' && errorMessage && (
-                            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
-                                <p className="font-medium mb-1">Something to fix</p>
-                                <p>{errorMessage}</p>
-                            </div>
+                            <Message variant="warning" title="Something to fix">
+                                {errorMessage}
+                            </Message>
                         )}
 
                         <div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ArrowDownLeft, Loader2, Check, Smartphone, Wallet } from 'lucide-react';
+import { Message } from '@/components/Message';
 
 function toFriendlyDepositError(msg?: string): string {
     if (!msg) return 'Something went wrong. Please try again in a moment.';
@@ -215,11 +216,10 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                         {errorMessage && (
-                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
-                            <p className="font-medium mb-1">Let's fix that</p>
-                            <p>{errorMessage}</p>
-                        </div>
-                    )}
+                            <Message variant="warning" title="Let's fix that">
+                                {errorMessage}
+                            </Message>
+                        )}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Asset</label>
                         <select

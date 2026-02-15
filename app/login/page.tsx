@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Header } from '@/components/Header';
+import { Message } from '@/components/Message';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
@@ -75,16 +76,14 @@ function LoginForm() {
 
                         <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
                             {messageParam === 'password-reset' && (
-                                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm" role="status">
-                                    <p className="font-medium">Password reset successful</p>
-                                    <p className="mt-1">Sign in with your new password.</p>
-                                </div>
+                                <Message variant="success" title="Password reset successful" role="status">
+                                    Sign in with your new password.
+                                </Message>
                             )}
                             {error && (
-                                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm" role="alert">
-                                    <p className="font-medium">We couldn't sign you in</p>
-                                    <p className="mt-1">{error}</p>
-                                </div>
+                                <Message variant="warning" title="We couldn't sign you in">
+                                    {error}
+                                </Message>
                             )}
                             <div>
                                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">Email</label>

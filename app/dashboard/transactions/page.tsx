@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, ArrowDownLeft, Loader2, Send, ChevronDown, ChevronUp, ExternalLink, Copy } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Loader2, Send, ChevronDown, ChevronUp, ExternalLink, Copy, History } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -137,7 +137,7 @@ export default function TransactionsPage() {
     const router = useRouter();
 
     useEffect(() => {
-        fetch('/api/user')
+        fetch('/api/transactions')
             .then(res => {
                 if (res.status === 401) {
                     router.push('/login');
@@ -206,12 +206,30 @@ export default function TransactionsPage() {
                 </div>
                 <div className="divide-y divide-slate-100">
                     {transactions.length === 0 ? (
-                        <div className="p-8 sm:p-12 text-center text-slate-500 text-sm sm:text-base">
-                            <p className="mb-2">No transactions yet.</p>
-                            <p className="mb-4 text-slate-400">Deposit, cash out, or send crypto to see your activity here.</p>
-                            <Link href="/dashboard/buy" className="text-teal-600 hover:text-teal-700 font-medium transition-colors">
-                                Make your first deposit →
-                            </Link>
+                        <div className="flex flex-col items-center justify-center py-12 sm:py-16 px-6">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                                <History className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-slate-800 mb-1">No transactions yet</h4>
+                            <p className="text-slate-500 text-sm sm:text-base text-center max-w-sm mb-6">
+                                Deposit, cash out, or send crypto to see your activity here.
+                            </p>
+                            <div className="flex flex-wrap gap-3 justify-center">
+                                <Link
+                                    href="/dashboard/buy"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors"
+                                >
+                                    <ArrowDownLeft className="w-4 h-4" />
+                                    Deposit
+                                </Link>
+                                <Link
+                                    href="/dashboard/send"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition-colors"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    Send
+                                </Link>
+                            </div>
                         </div>
                     ) : (
                         transactions.map((tx: any) => (

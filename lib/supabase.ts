@@ -13,6 +13,10 @@ export interface DbUser {
   email?: string | null;
   auth_id?: string | null;
   phone_number?: string | null;
+  full_name?: string | null;
+  address?: string | null;
+  id_document_type?: string | null;
+  id_document_number?: string | null;
   pin_hash: string;
   wallet_secret: string;
   wallet_public: string;

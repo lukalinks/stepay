@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
+import { Message } from '@/components/Message';
 
 function toFriendlySellError(msg?: string): string {
     if (!msg) return 'Something went wrong. Please try again in a moment.';
@@ -125,10 +126,9 @@ export default function SellPage() {
                 ) : (
                     <form onSubmit={handleSell} className="space-y-4 sm:space-y-6">
                         {error && (
-                            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
-                                <p className="font-medium mb-1">Something to fix</p>
-                                <p>{error}</p>
-                            </div>
+                            <Message variant="warning" title="Something to fix">
+                                {error}
+                            </Message>
                         )}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Asset</label>
@@ -149,10 +149,11 @@ export default function SellPage() {
                                     value={amount}
                                     onChange={(e) => { setAmount(e.target.value); setError(''); }}
                                     className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
-                                    placeholder="0.00"
+                                    placeholder={asset === 'usdc' ? '0.00' : '0.0000'}
                                     min={minCrypto}
                                     max={maxCrypto === Infinity ? undefined : maxCrypto}
-                                    step={asset === 'usdc' ? 0.01 : 0.0000001}
+                                    step="any"
+                                    inputMode="decimal"
                                     required
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">{asset.toUpperCase()}</span>
@@ -186,9 +187,9 @@ export default function SellPage() {
                             <p className="text-xs text-slate-500 mt-1">Zambian number where you&apos;ll receive the cash</p>
                         </div>
 
-                        <div className="rounded-xl bg-teal-50 border border-teal-100 p-3 text-sm text-teal-800">
-                            We'll convert your crypto to ZMW and send it straight to your mobile money. Funds usually arrive within a few minutes.
-                        </div>
+                        <Message variant="info" title="How it works">
+                            We&apos;ll convert your crypto to ZMW and send it straight to your mobile money. Funds usually arrive within a few minutes.
+                        </Message>
 
                         <button
                             type="submit"

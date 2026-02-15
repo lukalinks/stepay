@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Message } from '@/components/Message';
 
 export default function AdminSettingsPage() {
     const [loading, setLoading] = useState(true);
@@ -96,14 +97,14 @@ export default function AdminSettingsPage() {
                 </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 {message === 'success' && (
-                    <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-sm">
-                        Settings saved. Your new rates and limits apply immediately for all users.
-                    </div>
+                    <Message variant="success" title="Settings saved" role="status">
+                        Your new rates and limits apply immediately for all users.
+                    </Message>
                 )}
                 {message === 'error' && (
-                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm">
-                        We couldn&apos;t save your changes. Make sure you&apos;re signed in as an admin.
-                    </div>
+                    <Message variant="warning" title="Couldn't save changes">
+                        Make sure you&apos;re signed in as an admin.
+                    </Message>
                 )}
 
                 <div>
