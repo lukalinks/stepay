@@ -69,6 +69,10 @@ export async function POST(request: Request) {
         if (!config) {
             return NextResponse.json({ error: 'Auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to Vercel env vars.' }, { status: 500 });
         }
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+        if (!serviceKey || serviceKey === 'placeholder-key-for-build') {
+            return NextResponse.json({ error: 'Server auth not configured. Add SUPABASE_SERVICE_ROLE_KEY to Vercel env vars (Settings → Environment Variables).' }, { status: 500 });
+        }
 
         const authClient = createClient(config.url, config.anonKey);
 
@@ -102,11 +106,16 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        let message = 'Login failed';
+        if (err instanceof Error) {
+            message = err.message;
+        } else if (err && typeof err === 'object') {
+            const o = err as { message?: string; error?: string };
+            message = o.message || o.error || JSON.stringify(err).slice(0, 300) || message;
+        } else if (err != null) {
+            message = String(err);
+        }
         console.error('Login Error:', err);
-        return NextResponse.json(
-            { error: message || 'Login failed' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

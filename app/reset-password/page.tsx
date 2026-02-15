@@ -109,7 +109,7 @@ function ResetPasswordContent() {
         return (
             <div className="min-h-screen flex flex-col bg-[#faf9f7]">
                 <Header showBack maxWidth="content" />
-                <div className="flex-1 flex items-center justify-center stepay-dots px-4 py-8">
+                <div className="flex-1 flex items-start sm:items-center justify-center stepay-dots px-4 pt-4 pb-8">
                     <div className="w-full max-w-md text-center">
                         <div className="bg-white rounded-3xl shadow-xl border border-slate-200/60 p-8">
                             <Logo iconOnly size="lg" variant="light" className="mx-auto mb-6" />
@@ -132,7 +132,7 @@ function ResetPasswordContent() {
         return (
             <div className="min-h-screen flex flex-col bg-[#faf9f7]">
                 <Header showBack maxWidth="content" />
-                <div className="flex-1 flex items-center justify-center stepay-dots px-4 py-8">
+                <div className="flex-1 flex items-start sm:items-center justify-center stepay-dots px-4 pt-4 pb-8">
                     <div className="w-full max-w-md text-center">
                         <div className="bg-white rounded-3xl shadow-xl border border-slate-200/60 p-8">
                             <Logo iconOnly size="lg" variant="light" className="mx-auto mb-6" />
@@ -156,7 +156,7 @@ function ResetPasswordContent() {
     return (
         <div className="min-h-screen flex flex-col bg-[#faf9f7]">
             <Header showBack maxWidth="content" />
-            <div className="flex-1 flex items-center justify-center stepay-dots px-4 py-8 sm:py-12">
+            <div className="flex-1 flex items-start sm:items-center justify-center stepay-dots px-4 pt-4 pb-8 sm:py-12">
                 <div className="w-full max-w-md">
                     <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-200/60 p-6 sm:p-8 sm:rounded-tl-[2rem]">
                         <div className="text-center mb-6 sm:mb-8">
