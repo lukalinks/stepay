@@ -39,7 +39,8 @@ function ProfileCompleteForm() {
                     return;
                 }
                 setFullName(data.fullName || '');
-                setPhone(data.phone || '');
+                const phoneRaw = data.phone || '';
+                setPhone(phoneRaw.replace(/^\+260/, '').replace(/^0/, '').trim());
                 setAddress(data.address || '');
                 setIdDocumentType((data.idDocumentType === 'passport' ? 'passport' : 'nrc'));
                 setIdDocumentNumber(data.idDocumentNumber || '');
@@ -50,6 +51,12 @@ function ProfileCompleteForm() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const phoneDigits = phone.replace(/\s+/g, '').replace(/\D/g, '');
+        if (phoneDigits.length < 9) {
+            setError('Please enter a valid Zambian mobile number (e.g. 97 123 4567).');
+            return;
+        }
+        const fullPhone = `+260${phoneDigits}`;
         setIsLoading(true);
         setError(null);
 
@@ -59,7 +66,7 @@ function ProfileCompleteForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fullName: fullName.trim(),
-                    phone: phone.trim(),
+                    phone: fullPhone,
                     address: address.trim(),
                     idDocumentType,
                     idDocumentNumber: idDocumentNumber.trim(),
@@ -107,82 +114,93 @@ function ProfileCompleteForm() {
                             <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">We need a few details before you can continue</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
                                 <Message variant="warning" title="Something went wrong">
                                     {error}
                                 </Message>
                             )}
-                            <div>
-                                <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 mb-2">Full name</label>
-                                <input
-                                    id="fullName"
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
-                                    placeholder="John Mwale"
-                                    minLength={2}
-                                    maxLength={100}
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">Phone number</label>
-                                <input
-                                    id="phone"
-                                    type="tel"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
-                                    placeholder="0971234567"
-                                    inputMode="numeric"
-                                    required
-                                />
-                                <p className="text-xs text-slate-500 mt-1.5">Zambian mobile number for Mobile Money</p>
-                            </div>
-                            <div>
-                                <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-2">Address</label>
-                                <textarea
-                                    id="address"
-                                    value={address}
-                                    onChange={(e) => setAddress(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[80px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white resize-none"
-                                    placeholder="House number, street, town, province"
-                                    minLength={10}
-                                    maxLength={500}
-                                    required
-                                    rows={3}
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="idDocumentType" className="block text-sm font-medium text-slate-700 mb-2">ID document type</label>
-                                <select
-                                    id="idDocumentType"
-                                    value={idDocumentType}
-                                    onChange={(e) => setIdDocumentType(e.target.value as 'nrc' | 'passport')}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
-                                    required
-                                >
-                                    <option value="nrc">NRC (National Registration Card)</option>
-                                    <option value="passport">Passport</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="idDocumentNumber" className="block text-sm font-medium text-slate-700 mb-2">
-                                    {idDocumentType === 'nrc' ? 'NRC number' : 'Passport number'}
-                                </label>
-                                <input
-                                    id="idDocumentNumber"
-                                    type="text"
-                                    value={idDocumentNumber}
-                                    onChange={(e) => setIdDocumentNumber(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
-                                    placeholder={idDocumentType === 'nrc' ? '123456/78/9' : 'AB123456'}
-                                    minLength={5}
-                                    required
-                                />
-                            </div>
+                            <section className="space-y-5">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-200">Personal details</h3>
+                                <div className="space-y-2">
+                                    <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700">Full name</label>
+                                    <input
+                                        id="fullName"
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
+                                        placeholder="John Mwale"
+                                        minLength={2}
+                                        maxLength={100}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="phone" className="block text-sm font-semibold text-slate-700">Phone number</label>
+                                    <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden hover:border-slate-300 focus-within:ring-2 focus-within:ring-teal-500/25 focus-within:border-teal-500">
+                                        <span className="inline-flex items-center px-4 py-3.5 text-slate-500 bg-slate-50 border-r border-slate-200 text-base font-medium">+260</span>
+                                        <input
+                                            id="phone"
+                                            type="tel"
+                                            value={phone}
+                                            onChange={(e) => setPhone(e.target.value)}
+                                            className="flex-1 px-4 py-3.5 min-h-[48px] border-0 bg-transparent focus:ring-0 focus:outline-none text-base placeholder:text-slate-400"
+                                            placeholder="97 123 4567"
+                                            inputMode="tel"
+                                            required
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500">Zambian mobile number for Mobile Money</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="address" className="block text-sm font-semibold text-slate-700">Address</label>
+                                    <textarea
+                                        id="address"
+                                        value={address}
+                                        onChange={(e) => setAddress(e.target.value)}
+                                        className="w-full px-4 py-3.5 min-h-[88px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all resize-none placeholder:text-slate-400"
+                                        placeholder="House number, street, town, province"
+                                        minLength={10}
+                                        maxLength={500}
+                                        required
+                                        rows={3}
+                                    />
+                                </div>
+                            </section>
+                            <section className="space-y-5 pt-2">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-200">ID verification</h3>
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <label htmlFor="idDocumentType" className="block text-sm font-semibold text-slate-700">ID type</label>
+                                        <select
+                                            id="idDocumentType"
+                                            value={idDocumentType}
+                                            onChange={(e) => setIdDocumentType(e.target.value as 'nrc' | 'passport')}
+                                            className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all"
+                                            required
+                                        >
+                                            <option value="nrc">NRC</option>
+                                            <option value="passport">Passport</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label htmlFor="idDocumentNumber" className="block text-sm font-semibold text-slate-700">
+                                            {idDocumentType === 'nrc' ? 'NRC number' : 'Passport number'}
+                                        </label>
+                                        <input
+                                            id="idDocumentNumber"
+                                            type="text"
+                                            value={idDocumentNumber}
+                                            onChange={(e) => setIdDocumentNumber(e.target.value)}
+                                            className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
+                                            placeholder={idDocumentType === 'nrc' ? '123456/78/9' : 'AB123456'}
+                                            minLength={5}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            </section>
                             <button
                                 type="submit"
                                 disabled={isLoading}

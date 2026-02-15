@@ -58,7 +58,10 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
         fetch('/api/user')
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
-                if (data?.user?.phone_number) setPhone(data.user.phone_number);
+                if (data?.user?.phone_number) {
+                    const local = String(data.user.phone_number).replace(/^\+260/, '').replace(/^0/, '').trim();
+                    setPhone(local);
+                }
                 if (data?.user?.preferred_operator && ['mtn', 'airtel', 'zamtel'].includes(data.user.preferred_operator)) {
                     setOperator(data.user.preferred_operator);
                 }
@@ -69,7 +72,8 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const amountNum = Number(amount);
-        const phoneDigits = phone.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
+        const phoneDigits = phone.replace(/\s+/g, '').replace(/\D/g, '');
+        const fullPhone = `+260${phoneDigits}`;
         if (!amount || amountNum < minZmw) {
             setErrorMessage(`Please enter at least ${minZmw} ZMW to deposit. Small deposits help us keep fees low for everyone.`);
             setStatus('error');
@@ -80,8 +84,8 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
             setStatus('error');
             return;
         }
-        if (phoneDigits.length < 10) {
-            setErrorMessage('Please enter your full Zambian mobile number (e.g. 0971234567) so we can send you the payment request.');
+        if (phoneDigits.length < 9) {
+            setErrorMessage('Please enter your full Zambian mobile number (e.g. 97 123 4567) so we can send you the payment request.');
             setStatus('error');
             return;
         }
@@ -93,7 +97,7 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
             const res = await fetch('/api/buy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: amountNum, phone: phone.trim(), operator, asset }),
+                body: JSON.stringify({ amount: amountNum, phone: fullPhone, operator, asset }),
             });
 
             const data = await res.json();
@@ -214,68 +218,75 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
                     </button>
                 </div>
             ) : (
-                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-6">
                         {errorMessage && (
                             <Message variant="warning" title="Let's fix that">
                                 {errorMessage}
                             </Message>
                         )}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Asset</label>
-                        <select
-                            value={asset}
-                            onChange={(e) => { setAsset(e.target.value as 'xlm' | 'usdc'); clearError(); }}
-                            className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
-                        >
-                            <option value="xlm">XLM (Stellar Lumens)</option>
-                            <option value="usdc">USDC (Stellar)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Amount (ZMW)</label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">ZMW</span>
-                            <input
-                                type="number"
-                                value={amount}
-                                onChange={(e) => { setAmount(e.target.value); clearError(); }}
-                                className="w-full pl-16 pr-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
-                                placeholder="0.00"
-                                min={minZmw}
-                                max={maxZmw}
-                                step="0.01"
-                                required
-                            />
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Asset</label>
+                            <select
+                                value={asset}
+                                onChange={(e) => { setAsset(e.target.value as 'xlm' | 'usdc'); clearError(); }}
+                                className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 outline-none text-base transition-all"
+                            >
+                                <option value="xlm">XLM</option>
+                                <option value="usdc">USDC</option>
+                            </select>
                         </div>
-                        <p className="text-sm text-slate-500 mt-2">
-                            You'll get ~{(Number(amount || 0) / rate).toFixed(2)} {asset.toUpperCase()}. Deposits: {minZmw} – {maxZmw} ZMW per transaction
-                        </p>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Amount (ZMW)</label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">ZMW</span>
+                                <input
+                                    type="number"
+                                    value={amount}
+                                    onChange={(e) => { setAmount(e.target.value); clearError(); }}
+                                    className="w-full pl-14 pr-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 outline-none text-base font-semibold transition-all placeholder:text-slate-400"
+                                    placeholder="0.00"
+                                    min={minZmw}
+                                    max={maxZmw}
+                                    step="0.01"
+                                    required
+                                />
+                            </div>
+                            <p className="text-xs text-slate-500">~{(Number(amount || 0) / rate).toFixed(2)} {asset.toUpperCase()} · {minZmw}–{maxZmw} ZMW</p>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Network</label>
-                        <select
-                            value={operator}
-                            onChange={(e) => { setOperator(e.target.value as 'mtn' | 'airtel' | 'zamtel'); clearError(); }}
-                            className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
-                        >
-                            <option value="mtn">MTN</option>
-                            <option value="airtel">Airtel</option>
-                            <option value="zamtel">Zamtel</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Number</label>
-                        <input
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => { setPhone(e.target.value); clearError(); }}
-                            className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
-                            placeholder="+260 97 123 4567"
-                            inputMode="tel"
-                            required
-                        />
-                        <p className="text-xs text-slate-500 mt-1">Zambian number (e.g. +260971234567)</p>
-                    </div>
+                    <section className="space-y-5 pt-2 border-t border-slate-100">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment details</h3>
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-slate-700">Mobile Network</label>
+                                <select
+                                    value={operator}
+                                    onChange={(e) => { setOperator(e.target.value as 'mtn' | 'airtel' | 'zamtel'); clearError(); }}
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 outline-none text-base transition-all"
+                                >
+                                    <option value="mtn">MTN</option>
+                                    <option value="airtel">Airtel</option>
+                                    <option value="zamtel">Zamtel</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-slate-700">Mobile Number</label>
+                                <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden hover:border-slate-300 focus-within:ring-2 focus-within:ring-emerald-500/25 focus-within:border-emerald-500">
+                                    <span className="inline-flex items-center px-4 py-3.5 text-slate-500 bg-slate-50 border-r border-slate-200 text-base font-medium">+260</span>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => { setPhone(e.target.value); clearError(); }}
+                                        className="flex-1 px-4 py-3.5 min-h-[48px] border-0 bg-transparent focus:ring-0 focus:outline-none text-base placeholder:text-slate-400"
+                                        placeholder="97 123 4567"
+                                        inputMode="tel"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
                     <button
                         type="submit"

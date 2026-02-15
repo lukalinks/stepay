@@ -168,34 +168,35 @@ function ResetPasswordContent() {
                             <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Choose a strong password (at least 6 characters)</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
                                 <Message variant="warning" title="Something went wrong">
                                     {error}
                                 </Message>
                             )}
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">New password</label>
+                            <div className="space-y-2">
+                                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">New password</label>
                                 <input
                                     id="password"
                                     type="password"
                                     value={password}
                                     onChange={(e) => { setPassword(e.target.value); setError(null); }}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                     placeholder="••••••••"
                                     minLength={6}
                                     required
                                     autoFocus
                                 />
+                                <p className="text-xs text-slate-500">At least 6 characters</p>
                             </div>
-                            <div>
-                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">Confirm password</label>
+                            <div className="space-y-2">
+                                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-slate-700">Confirm password</label>
                                 <input
                                     id="confirmPassword"
                                     type="password"
                                     value={confirmPassword}
                                     onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                     placeholder="••••••••"
                                     minLength={6}
                                     required

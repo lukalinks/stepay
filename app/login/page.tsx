@@ -74,7 +74,7 @@ function LoginForm() {
                             <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Enter your email and password to sign in</p>
                         </div>
 
-                        <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
+                        <form onSubmit={handleLogin} className="space-y-6">
                             {messageParam === 'password-reset' && (
                                 <Message variant="success" title="Password reset successful" role="status">
                                     Sign in with your new password.
@@ -85,22 +85,22 @@ function LoginForm() {
                                     {error}
                                 </Message>
                             )}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                            <div className="space-y-2">
+                                <label htmlFor="email" className="block text-sm font-semibold text-slate-700">Email</label>
                                 <input
                                     id="email"
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                     placeholder="you@example.com"
                                     inputMode="email"
                                     required
                                 />
                             </div>
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label htmlFor="password" className="block text-sm font-medium text-slate-700">Password</label>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label htmlFor="password" className="block text-sm font-semibold text-slate-700">Password</label>
                                     <Link href="/forgot-password" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
                                         Forgot password?
                                     </Link>
@@ -110,12 +110,12 @@ function LoginForm() {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                     placeholder="••••••••"
                                     minLength={6}
                                     required
                                 />
-                                <p className="text-xs text-slate-500 mt-1.5">At least 6 characters</p>
+                                <p className="text-xs text-slate-500">At least 6 characters</p>
                             </div>
                             <button
                                 type="submit"

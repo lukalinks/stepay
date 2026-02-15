@@ -111,60 +111,59 @@ export default function SendPage() {
                         </button>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         {status === 'error' && errorMessage && (
                             <Message variant="warning" title="Something to fix">
                                 {errorMessage}
                             </Message>
                         )}
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Asset</label>
+                        <div className="grid gap-6 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Asset</label>
                             <select
                                 value={asset}
                                 onChange={(e) => setAsset(e.target.value as 'xlm' | 'usdc')}
-                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base"
+                                className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/25 outline-none text-base transition-all"
                             >
-                                <option value="xlm">XLM (Stellar Lumens)</option>
-                                <option value="usdc">USDC (Stellar)</option>
+                                <option value="xlm">XLM</option>
+                                <option value="usdc">USDC</option>
                             </select>
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Recipient Address</label>
-                            <input
-                                type="text"
-                                value={to}
-                                onChange={(e) => setTo(e.target.value)}
-                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base font-mono transition-all"
-                                placeholder="G..."
-                                required
-                            />
-                            <p className="text-xs text-slate-500 mt-1">Stellar address (starts with G)</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Amount ({asset.toUpperCase()})</label>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Amount ({asset.toUpperCase()})</label>
                             <input
                                 type="number"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
+                                className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/25 outline-none text-base font-semibold transition-all placeholder:text-slate-400"
                                 placeholder="0.00"
                                 step={asset === 'usdc' ? '0.01' : '0.0000001'}
                                 min={minAmount}
                                 required
                             />
-                            <p className="text-xs text-slate-500 mt-1">Min {minAmount} {asset.toUpperCase()}</p>
+                            <p className="text-xs text-slate-500">Min {minAmount} {asset.toUpperCase()}</p>
+                        </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Recipient Stellar Address</label>
+                            <input
+                                type="text"
+                                value={to}
+                                onChange={(e) => setTo(e.target.value)}
+                                className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/25 outline-none text-base font-mono transition-all placeholder:text-slate-400"
+                                placeholder="G..."
+                                required
+                            />
+                            <p className="text-xs text-slate-500">Stellar address (starts with G)</p>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Memo (optional)</label>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-slate-700">Memo <span className="font-normal text-slate-500">(optional)</span></label>
                             <input
                                 type="text"
                                 value={memo}
                                 onChange={(e) => setMemo(e.target.value)}
-                                className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base transition-all"
+                                className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                 placeholder="Up to 28 characters"
                                 maxLength={28}
                             />

@@ -103,20 +103,20 @@ export default function ForgotPasswordPage() {
                             <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Enter your email and we&apos;ll send you a link to reset it</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
                                 <Message variant="warning" title="Something went wrong">
                                     {error}
                                 </Message>
                             )}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                            <div className="space-y-2">
+                                <label htmlFor="email" className="block text-sm font-semibold text-slate-700">Email</label>
                                 <input
                                     id="email"
                                     type="email"
                                     value={email}
                                     onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-base sm:text-lg transition-all bg-white"
+                                    className="w-full px-4 py-3.5 min-h-[48px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 outline-none text-base transition-all placeholder:text-slate-400"
                                     placeholder="you@example.com"
                                     inputMode="email"
                                     required
