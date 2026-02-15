@@ -57,16 +57,28 @@ export default function AdminTransactionsPage() {
         return 'bg-red-100 text-red-800';
     };
 
+    function formatCrypto(amount: number, asset: string): string {
+        const n = Number(amount) || 0;
+        if (asset === 'usdc') return n.toFixed(2);
+        if (n >= 1) return parseFloat(n.toFixed(4)).toString();
+        return parseFloat(n.toFixed(6)).toString();
+    }
+
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200">
-                <h2 className="font-semibold text-slate-800">Transactions</h2>
-                <p className="text-sm text-slate-500 mt-1">{total} total</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+        <div className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Transactions</h1>
+                    <p className="mt-1 text-sm text-slate-500">{total} total</p>
+                </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-slate-200 px-6 py-4 sm:px-6">
+                    <div className="flex flex-wrap gap-2">
                     <select
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none"
                     >
                         <option value="">All types</option>
                         <option value="BUY">BUY</option>
@@ -76,35 +88,35 @@ export default function AdminTransactionsPage() {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none"
                     >
                         <option value="">All statuses</option>
                         <option value="PENDING">PENDING</option>
                         <option value="COMPLETED">COMPLETED</option>
                         <option value="FAILED">FAILED</option>
                     </select>
+                    </div>
                 </div>
-            </div>
-            <div className="overflow-x-auto">
+                <div className="overflow-x-auto">
                 {loading ? (
                     <div className="flex justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
                     </div>
                 ) : (
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-left">
+                        <thead className="bg-slate-50/80 text-left">
                             <tr>
-                                <th className="px-6 py-3 font-medium text-slate-600">Type</th>
-                                <th className="px-6 py-3 font-medium text-slate-600">Amount</th>
-                                <th className="px-6 py-3 font-medium text-slate-600">User</th>
-                                <th className="px-6 py-3 font-medium text-slate-600">Status</th>
-                                <th className="px-6 py-3 font-medium text-slate-600">Date</th>
-                                <th className="px-6 py-3 font-medium text-slate-600">Ref</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">Type</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">Amount</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">User</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">Status</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">Date</th>
+                                <th className="px-6 py-3.5 font-semibold text-slate-600">Ref</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {txs.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-slate-50/50">
+                                <tr key={tx.id} className="transition-colors hover:bg-slate-50/70">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
                                             {typeIcon(tx.type)}
@@ -112,8 +124,8 @@ export default function AdminTransactionsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="font-medium">{tx.amountXlm} {tx.asset?.toUpperCase() || 'XLM'}</span>
-                                        <span className="text-slate-500 ml-1">(ZMW {Number(tx.amountFiat).toFixed(2)})</span>
+                                        <span className="font-medium">{formatCrypto(tx.amountXlm, tx.asset || 'xlm')} {tx.asset?.toUpperCase() || 'XLM'}</span>
+                                        <span className="ml-1 text-slate-500">(ZMW {Number(tx.amountFiat).toLocaleString(undefined, { minimumFractionDigits: 2 })})</span>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600 max-w-[140px] truncate" title={tx.user?.email || tx.user?.phone}>
                                         {tx.user?.email || tx.user?.phone || tx.id.slice(0, 8)}
@@ -146,8 +158,9 @@ export default function AdminTransactionsPage() {
                     </table>
                 )}
                 {!loading && txs.length === 0 && (
-                    <div className="py-12 text-center text-slate-500">No transactions found</div>
+                    <div className="py-16 text-center text-slate-500">No transactions match your filters. Try adjusting them.</div>
                 )}
+                </div>
             </div>
         </div>
     );

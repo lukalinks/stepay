@@ -3,6 +3,16 @@
 import { useState } from 'react';
 import { Send, Loader2, CheckCircle } from 'lucide-react';
 
+function toFriendlySendError(msg?: string): string {
+    if (!msg || msg.toLowerCase().includes('server')) return 'Something went wrong. Please try again in a moment.';
+    const m = msg.toLowerCase();
+    if (m.includes('insufficient') || m.includes('balance')) return msg;
+    if (m.includes('invalid') && m.includes('address')) return 'Please check the recipient\'s Stellar address (it should start with G).';
+    if (m.includes('not found') || m.includes('destination')) return 'We couldn\'t find that Stellar address. Please double-check it.';
+    if (m.includes('memo')) return 'The memo might be invalid. Memos can be up to 28 characters.';
+    return msg;
+}
+
 export default function SendPage() {
     const [asset, setAsset] = useState<'xlm' | 'usdc'>('xlm');
     const [to, setTo] = useState('');
@@ -24,7 +34,7 @@ export default function SendPage() {
         try {
             const amountNum = parseFloat(amount);
             if (isNaN(amountNum) || amountNum < minAmount) {
-                setErrorMessage(`Enter a valid amount (min ${minAmount} ${asset.toUpperCase()}).`);
+                setErrorMessage(`Please enter at least ${minAmount} ${asset.toUpperCase()} to send.`);
                 setStatus('error');
                 setIsLoading(false);
                 return;
@@ -52,11 +62,11 @@ export default function SendPage() {
                 setTxHash(data.txHash || '');
                 setStatus('success');
             } else {
-                setErrorMessage(data.error || `Request failed (${res.status})`);
+                setErrorMessage(toFriendlySendError(data.error));
                 setStatus('error');
             }
         } catch (error) {
-            setErrorMessage('Network error. Please check your connection and try again.');
+            setErrorMessage('We couldn\'t reach our servers. Please check your connection and try again.');
             setStatus('error');
         } finally {
             setIsLoading(false);
@@ -78,9 +88,9 @@ export default function SendPage() {
                         <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
                             <CheckCircle className="w-8 h-8" />
                         </div>
-                        <h3 className="text-lg sm:text-xl font-bold font-heading mb-2">Sent Successfully!</h3>
+                        <h3 className="text-lg sm:text-xl font-bold font-heading mb-2">Sent!</h3>
                         <p className="text-slate-500 text-sm mb-4">
-                            {amount} {asset.toUpperCase()} has been sent.
+                            Your {amount} {asset.toUpperCase()} is on its way to the recipient.
                         </p>
                         {txHash && (
                             <a
@@ -102,8 +112,9 @@ export default function SendPage() {
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                         {status === 'error' && errorMessage && (
-                            <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700" role="alert">
-                                <strong>Error:</strong> {errorMessage}
+                            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
+                                <p className="font-medium mb-1">Something to fix</p>
+                                <p>{errorMessage}</p>
                             </div>
                         )}
 

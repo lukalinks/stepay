@@ -17,6 +17,13 @@ export interface PlatformFees {
   sell_percent: number;
 }
 
+export interface PlatformLimits {
+  min_deposit_zmw: number;
+  max_deposit_zmw: number;
+  min_withdraw_zmw: number;
+  max_withdraw_zmw: number;
+}
+
 const DEFAULT_RATES: PlatformRates = {
   xlm_buy: Number(process.env.XLM_RATE_ZMW || 3.5),
   xlm_sell: Number(process.env.XLM_RATE_ZMW || 3.5),
@@ -29,8 +36,16 @@ const DEFAULT_FEES: PlatformFees = {
   sell_percent: 0,
 };
 
+const DEFAULT_LIMITS: PlatformLimits = {
+  min_deposit_zmw: 4,
+  max_deposit_zmw: 50000,
+  min_withdraw_zmw: 4,
+  max_withdraw_zmw: 50000,
+};
+
 let cachedRates: PlatformRates | null = null;
 let cachedFees: PlatformFees | null = null;
+let cachedLimits: PlatformLimits | null = null;
 let cacheExpiry = 0;
 const CACHE_MS = 60_000; // 1 min
 
@@ -67,9 +82,18 @@ export async function getFees(): Promise<PlatformFees> {
   return cachedFees;
 }
 
+export async function getLimits(): Promise<PlatformLimits> {
+  if (cachedLimits && Date.now() < cacheExpiry) {
+    return cachedLimits!;
+  }
+  cachedLimits = await fetchFromDb<PlatformLimits>('limits', DEFAULT_LIMITS);
+  return cachedLimits;
+}
+
 export function invalidateRatesCache() {
   cachedRates = null;
   cachedFees = null;
+  cachedLimits = null;
   cacheExpiry = 0;
 }
 
@@ -86,4 +110,11 @@ export function cryptoToZmw(crypto: number, asset: 'xlm' | 'usdc', rates: Platfo
   const rate = asset === 'usdc' ? rates.usdc_sell : rates.xlm_sell;
   const feeMult = 1 - fees.sell_percent / 100;
   return crypto * rate * feeMult;
+}
+
+/** Inverse of cryptoToZmw: ZMW payout → min crypto to sell. Used for withdraw limits. */
+export function zmwToCryptoForSell(zmw: number, asset: 'xlm' | 'usdc', rates: PlatformRates, fees: PlatformFees): number {
+  const rate = asset === 'usdc' ? rates.usdc_sell : rates.xlm_sell;
+  const feeMult = 1 - fees.sell_percent / 100;
+  return zmw / (rate * feeMult) || 0;
 }

@@ -3,7 +3,7 @@ import { LencoService } from '@/lib/lenco';
 import { supabase } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { getRates, getFees, zmwToCrypto } from '@/lib/rates';
+import { getRates, getFees, getLimits, zmwToCrypto } from '@/lib/rates';
 
 const schema = z.object({
     amount: z.coerce.number().min(1),
@@ -38,13 +38,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        const [rates, fees] = await Promise.all([getRates(), getFees()]);
+        const [rates, fees, limits] = await Promise.all([getRates(), getFees(), getLimits()]);
         const amountCrypto = zmwToCrypto(amount, asset, rates, fees);
-        const minZmw = asset === 'xlm' ? 4 : 25; // XLM: 1 XLM reserve; USDC: ~1 USDC min
+        const minZmw = limits.min_deposit_zmw;
+        const maxZmw = limits.max_deposit_zmw;
         if (amount < minZmw) {
             return NextResponse.json({
                 success: false,
-                error: `Minimum ${minZmw} ZMW required for ${asset.toUpperCase()}.`,
+                error: `Minimum ${minZmw} ZMW required per deposit.`,
+            }, { status: 400 });
+        }
+        if (amount > maxZmw) {
+            return NextResponse.json({
+                success: false,
+                error: `Maximum ${maxZmw} ZMW per deposit.`,
             }, { status: 400 });
         }
 

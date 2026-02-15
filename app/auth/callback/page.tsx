@@ -16,7 +16,7 @@ function AuthCallbackContent() {
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
             const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
             if (!supabaseUrl || !supabaseAnonKey) {
-                setError('Auth not configured');
+                setError('We\'re still setting things up. Please try again in a few moments.');
                 return;
             }
 
@@ -37,7 +37,7 @@ function AuthCallbackContent() {
             }
 
             if (!token) {
-                setError('Invalid or expired link. Please try again.');
+                setError('This sign-in link has expired or already been used. Please request a new one from the login page.');
                 return;
             }
 
@@ -54,7 +54,7 @@ function AuthCallbackContent() {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                setError(data.error || 'Login failed');
+                setError(data.error || 'We couldn\'t complete sign-in. Please try again.');
                 return;
             }
 
@@ -69,12 +69,12 @@ function AuthCallbackContent() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
                 <Logo iconOnly size="lg" variant="light" className="mb-6" />
-                <p className="text-red-600 text-center mb-6">{error}</p>
+                <p className="text-amber-800 text-center mb-6 max-w-sm">{error}</p>
                 <a
                     href="/login"
                     className="text-teal-600 font-medium hover:underline"
                 >
-                    Back to Login
+                    Back to sign in
                 </a>
             </div>
         );

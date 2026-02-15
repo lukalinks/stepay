@@ -14,6 +14,14 @@ function formatStatus(status: string): string {
     return status || 'Pending';
 }
 
+function formatCryptoAmount(amount: number, asset: string): string {
+    const n = Number(amount) || 0;
+    if (asset === 'usdc') return n.toFixed(2);
+    if (n >= 1) return parseFloat(n.toFixed(4)).toString();
+    if (n >= 0.0001) return parseFloat(n.toFixed(6)).toString();
+    return n.toFixed(7);
+}
+
 function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string; amountXLM: number; amountFiat: number; status: string; reference: string; txHash: string | null; createdAt: string; depositMemo?: string } }) {
     const [expanded, setExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -50,7 +58,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                     </div>
                     <div>
                         <p className="font-semibold text-slate-900">
-                            {typeLabel} {tx.amountXLM} {assetLabel}
+                            {typeLabel} {formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
                         <p className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</p>
                     </div>
@@ -58,7 +66,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                 <div className="flex items-center gap-2">
                     <div className="text-right">
                         <p className={`font-bold ${amountColor}`}>
-                            {tx.type === 'BUY' ? '+' : '-'}{tx.amountXLM} {assetLabel}
+                            {tx.type === 'BUY' ? '+' : '-'}{formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
                         <p className="text-xs text-slate-500">{formatStatus(tx.status)}</p>
                     </div>
@@ -165,9 +173,9 @@ export default function DashboardPage() {
     if (!data) {
         return (
             <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center shadow-sm">
-                <p className="text-slate-600 mb-4">Failed to load dashboard.</p>
+                <p className="text-slate-600 mb-4">We couldn't load your dashboard right now.</p>
                 <button onClick={() => window.location.reload()} className="rounded-xl bg-teal-600 px-6 py-2.5 text-white font-medium hover:bg-teal-700 transition-colors">
-                    Retry
+                    Try again
                 </button>
             </div>
         );
@@ -176,10 +184,11 @@ export default function DashboardPage() {
     if (data.error) {
         return (
             <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center shadow-sm">
-                <p className="text-red-600 mb-4">{data.error}</p>
-                <p className="text-slate-500 text-sm mb-6">Try logging in again.</p>
+                <p className="text-amber-800 mb-2 font-medium">Something went wrong</p>
+                <p className="text-slate-600 mb-4">{data.error}</p>
+                <p className="text-slate-500 text-sm mb-6">Signing in again usually fixes this.</p>
                 <button onClick={() => router.push('/login')} className="rounded-xl bg-teal-600 px-6 py-2.5 text-white font-medium hover:bg-teal-700 transition-colors">
-                    Go to Login
+                    Sign in again
                 </button>
             </div>
         );
@@ -217,7 +226,7 @@ export default function DashboardPage() {
                             </button>
                         </div>
                     ) : (
-                        <p className="text-sm text-amber-600">No wallet linked. Please contact support.</p>
+                        <p className="text-sm text-amber-700">Your wallet is still being set up. If this persists, please contact support.</p>
                     )}
                 </div>
             </div>
@@ -293,12 +302,13 @@ export default function DashboardPage() {
                     {data.transactions.length === 0 ? (
                         <div className="p-8 sm:p-12 text-center text-slate-500 text-sm sm:text-base">
                             <p className="mb-2">No transactions yet.</p>
+                            <p className="mb-4 text-slate-400">Deposit, cash out, or send to see your activity here.</p>
                             <button
                                 type="button"
                                 onClick={() => setDepositModalOpen(true)}
                                 className="text-teal-600 hover:text-teal-700 font-medium transition-colors"
                             >
-                                Start depositing →
+                                Make your first deposit →
                             </button>
                         </div>
                     ) : (

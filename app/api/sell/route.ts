@@ -5,7 +5,7 @@ import { LencoService } from '@/lib/lenco';
 import { parseStellarError } from '@/lib/stellar-error';
 import { cookies } from 'next/headers';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
-import { getRates, getFees, cryptoToZmw } from '@/lib/rates';
+import { getRates, getFees, getLimits, cryptoToZmw } from '@/lib/rates';
 
 export async function GET() {
     return NextResponse.json({ message: 'Use POST to cash out. See docs for payload.' });
@@ -34,14 +34,13 @@ export async function POST(request: Request) {
         }
 
         const amountNum = Number(amount);
-        const minAmount = asset === 'usdc' ? 1 : 3;
         const assetLabel = asset === 'usdc' ? 'USDC' : 'XLM';
 
         if (amount === undefined || amount === null || amount === '') {
             return NextResponse.json({ success: false, error: 'Please enter an amount to sell' }, { status: 400 });
         }
-        if (isNaN(amountNum) || amountNum < minAmount) {
-            return NextResponse.json({ success: false, error: `Minimum ${minAmount} ${assetLabel} to sell` }, { status: 400 });
+        if (isNaN(amountNum) || amountNum <= 0) {
+            return NextResponse.json({ success: false, error: 'Please enter a valid amount to sell' }, { status: 400 });
         }
 
         const phoneRaw = typeof reqPhone === 'string' ? reqPhone.trim() : '';
@@ -78,8 +77,20 @@ export async function POST(request: Request) {
             );
         }
 
-        const [rates, fees] = await Promise.all([getRates(), getFees()]);
+        const [rates, fees, limits] = await Promise.all([getRates(), getFees(), getLimits()]);
         const amountFiat = cryptoToZmw(amountNum, asset, rates, fees);
+        if (amountFiat < limits.min_withdraw_zmw) {
+            return NextResponse.json({
+                success: false,
+                error: `Minimum ${limits.min_withdraw_zmw} ZMW payout per withdrawal.`,
+            }, { status: 400 });
+        }
+        if (amountFiat > limits.max_withdraw_zmw) {
+            return NextResponse.json({
+                success: false,
+                error: `Maximum ${limits.max_withdraw_zmw} ZMW per withdrawal.`,
+            }, { status: 400 });
+        }
         const depositMemo = Math.floor(100000 + Math.random() * 900000).toString();
         const reference = `SELL-${Date.now()}`;
 

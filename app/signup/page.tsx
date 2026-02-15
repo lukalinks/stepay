@@ -7,6 +7,16 @@ import { Header } from '@/components/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
+function toFriendlyAuthError(msg?: string): string {
+    if (!msg) return 'Something went wrong. Please try again.';
+    const m = msg.toLowerCase();
+    if (m.includes('already') || m.includes('email') && m.includes('exists')) return 'An account with this email already exists. Try signing in instead.';
+    if (m.includes('invalid') && m.includes('email')) return 'Please enter a valid email address.';
+    if (m.includes('password') && (m.includes('short') || m.includes('weak') || m.includes('length'))) return 'Your password should be at least 6 characters long.';
+    if (m.includes('network') || m.includes('connection')) return 'We couldn\'t reach our servers. Please check your connection.';
+    return msg;
+}
+
 function SignupForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -23,7 +33,7 @@ function SignupForm() {
         setError(null);
 
         if (password !== confirmPassword) {
-            setError('Passwords do not match');
+            setError('Your passwords don\'t match. Please type them again to make sure they\'re the same.');
             setIsLoading(false);
             return;
         }
@@ -41,11 +51,11 @@ function SignupForm() {
                 const target = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
                 router.push(target);
             } else {
-                setError(data.error || `Sign up failed (${res.status})`);
+                setError(toFriendlyAuthError(data.error));
             }
         } catch (err) {
             console.error(err);
-            setError('Network error. Check your connection.');
+            setError('We couldn\'t reach our servers. Please check your internet connection and try again.');
         } finally {
             setIsLoading(false);
         }

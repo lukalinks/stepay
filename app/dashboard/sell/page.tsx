@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
 
+function toFriendlySellError(msg?: string): string {
+    if (!msg) return 'Something went wrong. Please try again in a moment.';
+    const m = msg.toLowerCase();
+    if (m.includes('insufficient') || m.includes('balance')) return msg;
+    if (m.includes('minimum') || m.includes('maximum')) return msg;
+    if (m.includes('keep') && m.includes('xlm')) return msg;
+    if (m.includes('wallet')) return 'Your wallet couldn\'t be found. Please contact support.';
+    if (m.includes('payout') || m.includes('lenco')) return 'We couldn\'t send the cash to your phone right now. Your crypto is safe—please try again or contact support.';
+    if (m.includes('mobile') || m.includes('phone') || m.includes('number')) return msg;
+    if (m.includes('unauthorized')) return 'Please sign in again to continue.';
+    return msg;
+}
+
 const DEFAULT_RATES = { xlm: { sell: 3.5 }, usdc: { sell: 25 } } as const;
 
 export default function SellPage() {
@@ -15,27 +28,46 @@ export default function SellPage() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [rates, setRates] = useState<{ xlm: { sell: number }; usdc: { sell: number } }>(DEFAULT_RATES);
+    const [fees, setFees] = useState({ sellPercent: 0 });
+    const [limits, setLimits] = useState({ minWithdrawZmw: 4, maxWithdrawZmw: 50000 });
 
     useEffect(() => {
         fetch('/api/rates')
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
                 if (data?.rates) setRates(data.rates);
+                if (data?.fees) setFees(data.fees);
+                if (data?.limits) setLimits(data.limits);
             })
             .catch(() => {});
     }, []);
 
+    const rate = rates[asset].sell;
+    const feeMult = 1 - fees.sellPercent / 100;
+    const zmwPerUnit = rate * feeMult;
+    const minCrypto = limits.minWithdrawZmw / zmwPerUnit || 0;
+    const maxCrypto = limits.maxWithdrawZmw / zmwPerUnit || Infinity;
+
     const handleSell = async (e: React.FormEvent) => {
         e.preventDefault();
-        const min = asset === 'usdc' ? 1 : 3;
-        if (!amount || Number(amount) < min) {
-            setError(`Please enter at least ${min} ${asset.toUpperCase()} to cash out`);
+        const amountNum = Number(amount);
+        const zmwReceived = amountNum * zmwPerUnit;
+        if (!amount || amountNum <= 0) {
+            setError('Please enter how much you\'d like to cash out.');
+            return;
+        }
+        if (zmwReceived < limits.minWithdrawZmw) {
+            setError(`Cash outs start at ${limits.minWithdrawZmw} ZMW (about ${minCrypto.toFixed(asset === 'usdc' ? 2 : 4)} ${asset.toUpperCase()}).`);
+            return;
+        }
+        if (zmwReceived > limits.maxWithdrawZmw) {
+            setError(`We allow up to ${limits.maxWithdrawZmw} ZMW per cash out. You can make multiple withdrawals if needed.`);
             return;
         }
         const phoneClean = phone.replace(/\s+/g, '').replace(/^0/, '');
         const phoneDigits = phoneClean.replace(/\D/g, '');
         if (!phoneDigits || phoneDigits.length < 10) {
-            setError('Please enter a valid Zambian mobile number to receive funds');
+            setError('Please enter the mobile number where you\'d like to receive your ZMW (e.g. 0971234567).');
             return;
         }
         setIsLoading(true);
@@ -55,12 +87,12 @@ export default function SellPage() {
                 setMessage(data.message || `Cashed out ${amount} ${asset.toUpperCase()} successfully.`);
             } else {
                 setStatus('error');
-                setError(data.error || data.message || `Sell failed (${res.status})`);
+                setError(toFriendlySellError(data.error || data.message));
             }
         } catch (err) {
             console.error(err);
             setStatus('error');
-            setError('Network error. Please try again.');
+            setError('We couldn\'t reach our servers. Please check your connection and try again.');
         } finally {
             setIsLoading(false);
         }
@@ -81,8 +113,8 @@ export default function SellPage() {
                         <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
                             <CheckCircle className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">Cash Out Complete!</h3>
-                        <p className="text-slate-600 mb-6">{message}</p>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">You're all set!</h3>
+                        <p className="text-slate-600 mb-6">Your cash is on its way. {message}</p>
                         <button
                             onClick={() => { setStatus('idle'); setAmount(''); setPhone(''); setMessage(''); }}
                             className="w-full min-h-[48px] py-3 bg-slate-100 rounded-xl font-semibold hover:bg-slate-200 active:bg-slate-300 transition-colors"
@@ -93,8 +125,9 @@ export default function SellPage() {
                 ) : (
                     <form onSubmit={handleSell} className="space-y-4 sm:space-y-6">
                         {error && (
-                            <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                                {error}
+                            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
+                                <p className="font-medium mb-1">Something to fix</p>
+                                <p>{error}</p>
                             </div>
                         )}
                         <div>
@@ -117,13 +150,14 @@ export default function SellPage() {
                                     onChange={(e) => { setAmount(e.target.value); setError(''); }}
                                     className="w-full px-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
                                     placeholder="0.00"
-                                    min={asset === 'usdc' ? 1 : 3}
+                                    min={minCrypto}
+                                    max={maxCrypto === Infinity ? undefined : maxCrypto}
                                     step={asset === 'usdc' ? 0.01 : 0.0000001}
                                     required
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">{asset.toUpperCase()}</span>
                             </div>
-                            <p className="text-sm text-slate-500 mt-2">≈ ZMW {(Number(amount || 0) * rates[asset].sell).toFixed(2)} to your mobile money</p>
+                            <p className="text-sm text-slate-500 mt-2">You'll receive ≈ ZMW {(Number(amount || 0) * zmwPerUnit).toFixed(2)}. Cash outs: {limits.minWithdrawZmw} – {limits.maxWithdrawZmw} ZMW</p>
                         </div>
 
                         <div>
@@ -153,7 +187,7 @@ export default function SellPage() {
                         </div>
 
                         <div className="rounded-xl bg-teal-50 border border-teal-100 p-3 text-sm text-teal-800">
-                            Crypto will be deducted from your Stepay wallet and ZMW sent to your mobile number.
+                            We'll convert your crypto to ZMW and send it straight to your mobile money. Funds usually arrive within a few minutes.
                         </div>
 
                         <button

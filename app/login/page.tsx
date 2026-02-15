@@ -7,6 +7,17 @@ import { Header } from '@/components/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
+function toFriendlyAuthError(msg?: string, action: string = 'sign in'): string {
+    if (!msg) return `We couldn't ${action}. Please try again.`;
+    const m = msg.toLowerCase();
+    if (m.includes('invalid') && (m.includes('credentials') || m.includes('email') || m.includes('password'))) return 'Invalid email or password. Please check and try again.';
+    if (m.includes('user not found') || m.includes('email not found')) return 'We don\'t have an account with that email. Try signing up first.';
+    if (m.includes('unauthorized')) return 'Your session may have expired. Please sign in again.';
+    if (m.includes('too many') || m.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
+    if (m.includes('network') || m.includes('connection')) return 'We couldn\'t reach our servers. Please check your connection.';
+    return msg;
+}
+
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -37,11 +48,11 @@ function LoginForm() {
                 const target = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
                 router.push(target);
             } else {
-                setError(data.error || `Login failed (${res.status})`);
+                setError(toFriendlyAuthError(data.error, 'sign in'));
             }
         } catch (err) {
             console.error(err);
-            setError('Network error. Check your connection.');
+            setError('We couldn\'t reach our servers. Please check your internet connection and try again.');
         } finally {
             setIsLoading(false);
         }
@@ -63,8 +74,9 @@ function LoginForm() {
 
                         <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
                             {error && (
-                                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm" role="alert">
-                                    {error}
+                                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm" role="alert">
+                                    <p className="font-medium">We couldn't sign you in</p>
+                                    <p className="mt-1">{error}</p>
                                 </div>
                             )}
                             <div>

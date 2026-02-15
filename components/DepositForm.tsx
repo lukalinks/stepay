@@ -3,6 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowDownLeft, Loader2, Check, Smartphone, Wallet } from 'lucide-react';
 
+function toFriendlyDepositError(msg?: string): string {
+    if (!msg) return 'Something went wrong. Please try again in a moment.';
+    const m = msg.toLowerCase();
+    if (m.includes('minimum')) return msg;
+    if (m.includes('maximum')) return msg;
+    if (m.includes('mobile') || m.includes('phone') || m.includes('number')) return msg;
+    if (m.includes('unauthorized') || m.includes('sign in')) return 'Please sign in again to continue.';
+    if (m.includes('collection') || m.includes('lenco') || m.includes('mobile money')) return 'We couldn\'t send the payment request to your phone. Please check your number and try again.';
+    return msg;
+}
+
 const DEFAULT_RATES = { xlm: { buy: 3.5 }, usdc: { buy: 25 } } as const;
 
 type DepositStep = 'request_sent' | 'approve_phone' | 'complete';
@@ -26,15 +37,18 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
     const [depositStep, setDepositStep] = useState<DepositStep>('request_sent');
     const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [rates, setRates] = useState<{ xlm: { buy: number }; usdc: { buy: number } }>(DEFAULT_RATES);
+    const [limits, setLimits] = useState({ minDepositZmw: 4, maxDepositZmw: 50000 });
 
     const rate = rates[asset].buy;
-    const minZmw = asset === 'xlm' ? 4 : 25;
+    const minZmw = limits.minDepositZmw;
+    const maxZmw = limits.maxDepositZmw;
 
     useEffect(() => {
         fetch('/api/rates')
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
                 if (data?.rates) setRates(data.rates);
+                if (data?.limits) setLimits(data.limits);
             })
             .catch(() => {});
     }, []);
@@ -56,12 +70,17 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
         const amountNum = Number(amount);
         const phoneDigits = phone.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
         if (!amount || amountNum < minZmw) {
-            setErrorMessage(`Minimum ${minZmw} ZMW required for ${asset.toUpperCase()}`);
+            setErrorMessage(`Please enter at least ${minZmw} ZMW to deposit. Small deposits help us keep fees low for everyone.`);
+            setStatus('error');
+            return;
+        }
+        if (amountNum > maxZmw) {
+            setErrorMessage(`Deposits are limited to ${maxZmw} ZMW per transaction. You can make multiple deposits if needed.`);
             setStatus('error');
             return;
         }
         if (phoneDigits.length < 10) {
-            setErrorMessage('Please enter a valid Zambian mobile number');
+            setErrorMessage('Please enter your full Zambian mobile number (e.g. 0971234567) so we can send you the payment request.');
             setStatus('error');
             return;
         }
@@ -84,11 +103,11 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
                 setDepositStep('request_sent');
                 onSuccess?.();
             } else {
-                setErrorMessage(data.error || 'Something went wrong');
+                setErrorMessage(toFriendlyDepositError(data.error));
                 setStatus('error');
             }
         } catch (error) {
-            setErrorMessage('Network error. Please try again.');
+            setErrorMessage('We couldn\'t reach our servers. Please check your internet connection and try again.');
             setStatus('error');
         } finally {
             setIsLoading(false);
@@ -175,7 +194,7 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
                                             {step.label}
                                         </p>
                                         {isCurrent && step.key === 'approve_phone' && (
-                                            <p className="text-xs text-amber-700 mt-1">Check your phone to approve</p>
+                                            <p className="text-xs text-amber-700 mt-1">You'll receive a prompt on your phone—approve it to complete your deposit.</p>
                                         )}
                                     </div>
                                 </div>
@@ -195,9 +214,10 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
                 </div>
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-                    {errorMessage && (
-                        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700" role="alert">
-                            {errorMessage}
+                        {errorMessage && (
+                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800" role="alert">
+                            <p className="font-medium mb-1">Let's fix that</p>
+                            <p>{errorMessage}</p>
                         </div>
                     )}
                     <div>
@@ -222,12 +242,13 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
                                 className="w-full pl-16 pr-4 py-3 min-h-[48px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-base sm:text-lg font-semibold transition-all"
                                 placeholder="0.00"
                                 min={minZmw}
+                                max={maxZmw}
                                 step="0.01"
                                 required
                             />
                         </div>
                         <p className="text-sm text-slate-500 mt-2">
-                            ~{(Number(amount || 0) / rate).toFixed(2)} {asset.toUpperCase()} · Min {minZmw} ZMW
+                            You'll get ~{(Number(amount || 0) / rate).toFixed(2)} {asset.toUpperCase()}. Deposits: {minZmw} – {maxZmw} ZMW per transaction
                         </p>
                     </div>
                     <div>

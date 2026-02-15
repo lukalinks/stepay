@@ -21,7 +21,7 @@ export async function GET() {
         const { data } = await supabase
             .from('platform_settings')
             .select('key, value_json')
-            .in('key', ['rates', 'fee']);
+            .in('key', ['rates', 'fee', 'limits']);
         const obj: Record<string, unknown> = {};
         for (const row of data ?? []) {
             try {
@@ -33,6 +33,12 @@ export async function GET() {
         return NextResponse.json({
             rates: obj.rates ?? { xlm_buy: 3.5, xlm_sell: 3.5, usdc_buy: 25, usdc_sell: 25 },
             fee: obj.fee ?? { buy_percent: 0, sell_percent: 0 },
+            limits: {
+                min_deposit_zmw: (obj.limits as Record<string, number>)?.min_deposit_zmw ?? 4,
+                max_deposit_zmw: (obj.limits as Record<string, number>)?.max_deposit_zmw ?? 50000,
+                min_withdraw_zmw: (obj.limits as Record<string, number>)?.min_withdraw_zmw ?? 4,
+                max_withdraw_zmw: (obj.limits as Record<string, number>)?.max_withdraw_zmw ?? 50000,
+            },
         });
     } catch (err) {
         console.error('Admin settings GET:', err);
@@ -47,7 +53,7 @@ export async function PATCH(request: Request) {
     }
     try {
         const body = await request.json().catch(() => ({}));
-        const { rates, fee } = body;
+        const { rates, fee, limits } = body;
 
         if (rates && typeof rates === 'object') {
             const merged = {
@@ -69,6 +75,22 @@ export async function PATCH(request: Request) {
             await supabase
                 .from('platform_settings')
                 .upsert({ key: 'fee', value_json: JSON.stringify(merged), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        }
+
+        if (limits && typeof limits === 'object') {
+            const minDep = Math.max(1, Number(limits.min_deposit_zmw) || 4);
+            const maxDep = Math.max(minDep, Number(limits.max_deposit_zmw) || 50000);
+            const minWith = Math.max(1, Number(limits.min_withdraw_zmw) || 4);
+            const maxWith = Math.max(minWith, Number(limits.max_withdraw_zmw) || 50000);
+            const merged = {
+                min_deposit_zmw: minDep,
+                max_deposit_zmw: maxDep,
+                min_withdraw_zmw: minWith,
+                max_withdraw_zmw: maxWith,
+            };
+            await supabase
+                .from('platform_settings')
+                .upsert({ key: 'limits', value_json: JSON.stringify(merged), updated_at: new Date().toISOString() }, { onConflict: 'key' });
         }
 
         invalidateRatesCache();
