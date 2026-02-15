@@ -23,6 +23,7 @@ function LoginForm() {
     const searchParams = useSearchParams();
     const redirectTo = searchParams.get('next') || '/dashboard';
     const errorParam = searchParams.get('error');
+    const messageParam = searchParams.get('message');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -73,6 +74,12 @@ function LoginForm() {
                         </div>
 
                         <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
+                            {messageParam === 'password-reset' && (
+                                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm" role="status">
+                                    <p className="font-medium">Password reset successful</p>
+                                    <p className="mt-1">Sign in with your new password.</p>
+                                </div>
+                            )}
                             {error && (
                                 <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm" role="alert">
                                     <p className="font-medium">We couldn't sign you in</p>
@@ -93,7 +100,12 @@ function LoginForm() {
                                 />
                             </div>
                             <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">Password</label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label htmlFor="password" className="block text-sm font-medium text-slate-700">Password</label>
+                                    <Link href="/forgot-password" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+                                        Forgot password?
+                                    </Link>
+                                </div>
                                 <input
                                     id="password"
                                     type="password"

@@ -21,6 +21,7 @@ A "Real" application for buying and selling Stellar Lumens (XLM) using Mobile Mo
    - In the SQL Editor, run migrations in order: `00001_init_schema.sql` then `00002_add_email_auth.sql`
    - Copy Project URL, anon key, and Service Role Key from Settings → API
    - For password auth: Supabase → Auth → Providers → Email — ensure "Confirm email" is off if you want immediate sign-in for new users
+   - For forgot password: Supabase → Auth → URL Configuration — add your site URL (e.g. `https://stepay.vercel.app`) and `https://stepay.vercel.app/reset-password` to Redirect URLs
 
 3. **Lenco Webhook** (Required for deposit confirmations)
    - Add this webhook URL in Lenco Dashboard (contact [Lenco support](mailto:support@lenco.co) if needed):
