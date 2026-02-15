@@ -39,68 +39,69 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
     };
 
     const typeStyles = {
-        BUY: 'bg-emerald-100 text-emerald-600',
-        SEND: 'bg-violet-100 text-violet-600',
-        SELL: 'bg-teal-100 text-teal-600',
+        BUY: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/50',
+        SEND: 'bg-violet-100 text-violet-700 ring-1 ring-violet-200/50',
+        SELL: 'bg-teal-100 text-teal-700 ring-1 ring-teal-200/50',
     };
-    const amountColor = tx.type === 'BUY' ? 'text-emerald-600' : tx.type === 'SEND' ? 'text-violet-600' : 'text-slate-900';
+    const amountColor = tx.type === 'BUY' ? 'text-emerald-600' : tx.type === 'SEND' ? 'text-violet-600' : 'text-teal-600';
+    const statusStyles = tx.status === 'COMPLETED' ? 'text-emerald-600' : tx.status === 'FAILED' ? 'text-red-500' : 'text-amber-600';
 
     return (
-        <div className="border-b border-slate-100 last:border-b-0">
+        <div className="border-b border-slate-200/60 last:border-b-0">
             <button
                 type="button"
                 onClick={() => setExpanded(!expanded)}
-                className="w-full p-4 flex justify-between items-center gap-3 hover:bg-slate-50/80 active:bg-slate-100 min-h-[72px] text-left transition-colors"
+                className="w-full px-5 py-4 flex justify-between items-center gap-3 hover:bg-slate-50/80 active:bg-slate-50 min-h-[76px] text-left transition-colors rounded-lg mx-1 my-0.5"
             >
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl shrink-0 ${typeStyles[tx.type as keyof typeof typeStyles] || typeStyles.SELL}`}>
+                <div className="flex items-center gap-4">
+                    <div className={`p-2.5 rounded-xl shrink-0 ${typeStyles[tx.type as keyof typeof typeStyles] || typeStyles.SELL}`}>
                         {tx.type === 'BUY' ? <ArrowDownLeft className="w-5 h-5" /> : tx.type === 'SEND' ? <Send className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                     </div>
                     <div>
-                        <p className="font-semibold text-slate-900">
+                        <p className="font-semibold text-slate-900 text-[15px]">
                             {typeLabel} {formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
-                        <p className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{new Date(tx.createdAt).toLocaleString()}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <div className="text-right">
-                        <p className={`font-bold ${amountColor}`}>
+                        <p className={`font-bold text-[15px] ${amountColor}`}>
                             {tx.type === 'BUY' ? '+' : '-'}{formatCryptoAmount(tx.amountXLM, tx.asset)} {assetLabel}
                         </p>
-                        <p className="text-xs text-slate-500">{formatStatus(tx.status)}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${statusStyles}`}>{formatStatus(tx.status)}</p>
                     </div>
                     {expanded ? <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
                 </div>
             </button>
             {expanded && (
-                <div className="px-4 pb-4 pt-0 space-y-3 bg-slate-50/70 border-t border-slate-100">
-                    <div className="grid gap-2 text-sm">
-                        <div className="flex justify-between gap-4">
+                <div className="px-5 pb-5 pt-2 space-y-3 bg-slate-50/80 mx-1 mb-1 rounded-b-xl">
+                    <div className="grid gap-3 text-sm">
+                        <div className="flex justify-between gap-4 py-1.5">
                             <span className="text-slate-500">Amount (ZMW)</span>
-                            <span className="font-medium text-slate-800">ZMW {Number(tx.amountFiat).toFixed(2)}</span>
+                            <span className="font-semibold text-slate-800">ZMW {Number(tx.amountFiat).toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between gap-4 items-center">
+                        <div className="flex justify-between gap-4 items-center py-1.5">
                             <span className="text-slate-500">Reference</span>
-                            <code className="font-mono text-xs bg-white px-2 py-1 rounded-lg border border-slate-200 truncate max-w-[160px]" title={tx.reference}>{tx.reference}</code>
+                            <code className="font-mono text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 truncate max-w-[180px]" title={tx.reference}>{tx.reference}</code>
                         </div>
                         {tx.depositMemo && (
-                            <div className="flex justify-between gap-4 items-center">
+                            <div className="flex justify-between gap-4 items-center py-1.5">
                                 <span className="text-slate-500">Memo</span>
-                                <code className="font-mono text-xs bg-white px-2 py-1 rounded-lg border border-slate-200">{tx.depositMemo}</code>
+                                <code className="font-mono text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">{tx.depositMemo}</code>
                             </div>
                         )}
-                        <div className="flex justify-between gap-4 items-center flex-wrap">
+                        <div className="flex justify-between gap-4 items-center flex-wrap py-1.5">
                             <span className="text-slate-500">Blockchain Hash</span>
                             {tx.txHash ? (
-                                <div className="flex items-center gap-1 flex-wrap justify-end">
-                                    <code className="font-mono text-xs bg-white px-2 py-1 rounded-lg border border-slate-200 break-all max-w-full" title={tx.txHash}>
+                                <div className="flex items-center gap-2 flex-wrap justify-end">
+                                    <code className="font-mono text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 break-all max-w-full" title={tx.txHash}>
                                         {tx.txHash.slice(0, 12)}...{tx.txHash.slice(-8)}
                                     </code>
                                     <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); copyHash(); }}
-                                        className="p-1.5 rounded-lg hover:bg-slate-200 active:bg-slate-300 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors"
+                                        className="p-2 rounded-lg hover:bg-slate-200 active:bg-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors border border-slate-200"
                                         title="Copy hash"
                                     >
                                         <Copy className="w-4 h-4 text-slate-600" />
@@ -110,7 +111,7 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="p-1.5 rounded-lg hover:bg-slate-200 active:bg-slate-300 min-h-[32px] min-w-[32px] flex items-center justify-center text-teal-600 transition-colors"
+                                        className="p-2 rounded-lg hover:bg-teal-50 border border-slate-200 min-h-[36px] min-w-[36px] flex items-center justify-center text-teal-600 transition-colors"
                                         title="View on Stellar Explorer"
                                     >
                                         <ExternalLink className="w-4 h-4" />
@@ -120,12 +121,12 @@ function TransactionRow({ tx }: { tx: { id: string; type: string; asset: string;
                                 <span className="text-slate-400 text-xs">—</span>
                             )}
                         </div>
-                        <div className="flex justify-between gap-4">
+                        <div className="flex justify-between gap-4 py-1.5">
                             <span className="text-slate-500">Date</span>
-                            <span className="text-slate-700">{new Date(tx.createdAt).toLocaleString()}</span>
+                            <span className="font-medium text-slate-700">{new Date(tx.createdAt).toLocaleString()}</span>
                         </div>
                     </div>
-                    {copied && <p className="text-xs text-emerald-600 font-medium">Hash copied!</p>}
+                    {copied && <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">Hash copied!</p>}
                 </div>
             )}
         </div>
@@ -224,9 +225,8 @@ export default function DashboardPage() {
         <div className="space-y-6 sm:space-y-8">
             <div className="flex flex-col gap-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-heading">Dashboard</h1>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base">Welcome back, {data.user?.email || data.user?.phone || 'there'}</p>
+                        <p className="text-slate-900 font-semibold text-base sm:text-lg">Welcome back, {data.user?.email || data.user?.phone || 'there'}</p>
                         {data.user?.role === 'admin' && (
                             <Link href="/admin" className="text-xs text-teal-600 hover:text-teal-700 font-medium">
                                 Admin →
@@ -260,67 +260,65 @@ export default function DashboardPage() {
                 <div
                     ref={sliderRef}
                     onScroll={handleSlideScroll}
-                    className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth gap-3 sm:gap-4 px-4 sm:px-0 pb-2 snap-center [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 sm:gap-5 px-4 sm:px-0 pb-2 snap-center [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                     style={{ scrollSnapType: 'x mandatory' }}
                 >
                     {/* XLM Card */}
-                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
-                        <div className="bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white shadow-lg shadow-teal-500/20 relative overflow-hidden min-h-[140px] sm:min-h-[155px]">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="w-14 h-14 sm:w-20 sm:h-20" />
-                            </div>
-                            <div className="relative z-10 flex justify-between items-start mb-3">
-                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur">
-                                    <Wallet className="w-4 h-4" />
+                    <div className="flex-shrink-0 w-[280px] sm:w-[240px] lg:w-[220px] min-w-0 snap-center">
+                        <div className="bg-gradient-to-br from-teal-500 via-teal-600 to-teal-800 rounded-2xl p-5 text-white shadow-xl shadow-teal-500/25 ring-1 ring-white/10 relative overflow-hidden min-h-[150px] hover:shadow-teal-500/30 transition-shadow">
+                            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
+                            <div className="absolute right-2 top-2 h-12 w-12 rounded-full bg-white/5" />
+                            <div className="relative z-10 flex flex-col h-full">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-[10px] font-bold tracking-widest uppercase text-white/80">XLM</span>
+                                    <div className="p-1.5 rounded-lg bg-white/15">
+                                        <Wallet className="w-4 h-4" />
+                                    </div>
                                 </div>
-                                <span className="bg-white/20 px-2 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase">XLM</span>
-                            </div>
-                            <div className="relative z-10">
-                                <p className="text-teal-100 text-xs font-medium mb-0.5">XLM Balance</p>
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{Number(data.balance.xlm).toLocaleString()} XLM</h2>
-                                <p className="text-teal-100/90 mt-1 text-xs font-medium">≈ ZMW {data.balance.xlmZmwEquiv}</p>
+                                <p className="text-white/70 text-xs font-medium mb-0.5">Balance</p>
+                                <p className="text-2xl sm:text-3xl font-bold tracking-tight leading-tight">{Number(data.balance.xlm).toLocaleString()} XLM</p>
+                                <p className="mt-2 text-xs text-white/70 font-medium">≈ ZMW {data.balance.xlmZmwEquiv}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* USDC Card */}
-                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
-                        <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden min-h-[140px] sm:min-h-[155px]">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="w-14 h-14 sm:w-20 sm:h-20" />
-                            </div>
-                            <div className="relative z-10 flex justify-between items-start mb-3">
-                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur">
-                                    <Wallet className="w-4 h-4" />
+                    <div className="flex-shrink-0 w-[280px] sm:w-[240px] lg:w-[220px] min-w-0 snap-center">
+                        <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-800 rounded-2xl p-5 text-white shadow-xl shadow-emerald-500/25 ring-1 ring-white/10 relative overflow-hidden min-h-[150px] hover:shadow-emerald-500/30 transition-shadow">
+                            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
+                            <div className="absolute right-2 top-2 h-12 w-12 rounded-full bg-white/5" />
+                            <div className="relative z-10 flex flex-col h-full">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-[10px] font-bold tracking-widest uppercase text-white/80">USDC</span>
+                                    <div className="p-1.5 rounded-lg bg-white/15">
+                                        <Wallet className="w-4 h-4" />
+                                    </div>
                                 </div>
-                                <span className="bg-white/20 px-2 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase">USDC</span>
-                            </div>
-                            <div className="relative z-10">
-                                <p className="text-emerald-100 text-xs font-medium mb-0.5">USDC Balance</p>
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{Number(data.balance.usdc || 0).toLocaleString()} USDC</h2>
-                                <p className="text-emerald-100/90 mt-1 text-xs font-medium">≈ ZMW {data.balance.usdcZmwEquiv}</p>
+                                <p className="text-white/70 text-xs font-medium mb-0.5">Balance</p>
+                                <p className="text-2xl sm:text-3xl font-bold tracking-tight leading-tight">{Number(data.balance.usdc || 0).toLocaleString()} USDC</p>
+                                <p className="mt-2 text-xs text-white/70 font-medium">≈ ZMW {data.balance.usdcZmwEquiv}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Quick Actions Card */}
-                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
-                        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-lg shadow-slate-200/40 flex flex-col justify-between min-h-[140px] sm:min-h-[155px]">
-                            <h3 className="font-bold text-slate-800 text-xs mb-3">Quick Actions</h3>
-                            <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                    <div className="flex-shrink-0 w-[280px] sm:w-[240px] lg:w-[220px] min-w-0 snap-center">
+                        <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 shadow-sm ring-1 ring-slate-900/5 flex flex-col justify-between min-h-[150px] hover:shadow-md transition-shadow">
+                            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-4">Quick Actions</h3>
+                            <div className="grid grid-cols-3 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setDepositModalOpen(true)}
-                                    className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]"
+                                    className="flex flex-col items-center justify-center min-h-[72px] p-3 bg-white border border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/80 text-emerald-700 rounded-xl transition-all gap-2 group active:scale-[0.97] shadow-sm"
                                 >
                                     <ArrowDownLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                     <span className="font-semibold text-xs">Deposit</span>
                                 </button>
-                                <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]">
+                                <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[72px] p-3 bg-white border border-slate-200/80 hover:border-violet-300 hover:bg-violet-50/80 text-violet-700 rounded-xl transition-all gap-2 group active:scale-[0.97] shadow-sm">
                                     <Send className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                     <span className="font-semibold text-xs">Send</span>
                                 </Link>
-                                <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]">
+                                <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[72px] p-3 bg-white border border-slate-200/80 hover:border-teal-300 hover:bg-teal-50/80 text-teal-700 rounded-xl transition-all gap-2 group active:scale-[0.97] shadow-sm">
                                     <ArrowUpRight className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                     <span className="font-semibold text-xs">Cash Out</span>
                                 </Link>
@@ -330,14 +328,14 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Pagination dots */}
-                <div className="flex justify-center gap-1.5 mt-3">
+                <div className="flex justify-center gap-2 mt-4">
                     {[0, 1, 2].map((i) => (
                         <button
                             key={i}
                             type="button"
                             onClick={() => goToSlide(i)}
                             className={`h-2 rounded-full transition-all duration-300 ${
-                                slideIndex === i ? 'w-6 bg-teal-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                                slideIndex === i ? 'w-7 bg-teal-500 shadow-sm' : 'w-2 bg-slate-300 hover:bg-slate-400'
                             }`}
                             aria-label={`Go to slide ${i + 1}`}
                         />
@@ -346,22 +344,28 @@ export default function DashboardPage() {
             </div>
 
             {/* Recent Transactions Preview */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sm:rounded-tr-[1.5rem]">
-                <div className="p-4 sm:p-6 border-b border-slate-200/60 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-900 font-heading">Recent Transactions</h3>
-                    <Link href="/dashboard/transactions" className="text-sm text-teal-600 hover:text-teal-700 font-medium py-2 px-3 -m-2 min-h-[44px] flex items-center transition-colors">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm ring-1 ring-slate-900/5 overflow-hidden">
+                <div className="px-5 sm:px-6 py-4 border-b border-slate-200/60 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h3 className="font-bold text-slate-900 text-base sm:text-lg">Recent Transactions</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Deposits, cash outs, and sends</p>
+                    </div>
+                    <Link href="/dashboard/transactions" className="text-sm text-teal-600 hover:text-teal-700 font-semibold py-2.5 px-4 rounded-xl hover:bg-teal-50 transition-colors min-h-[44px] flex items-center">
                         View all →
                     </Link>
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div>
                     {data.transactions.length === 0 ? (
-                        <div className="p-8 sm:p-12 text-center text-slate-500 text-sm sm:text-base">
-                            <p className="mb-2">No transactions yet.</p>
-                            <p className="mb-4 text-slate-400">Deposit, cash out, or send to see your activity here.</p>
+                        <div className="p-10 sm:p-14 text-center">
+                            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                <Wallet className="w-7 h-7 text-slate-400" />
+                            </div>
+                            <p className="text-slate-700 font-medium mb-1">No transactions yet</p>
+                            <p className="text-slate-500 text-sm mb-6">Deposit, cash out, or send to see your activity here.</p>
                             <button
                                 type="button"
                                 onClick={() => setDepositModalOpen(true)}
-                                className="text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                                className="text-teal-600 hover:text-teal-700 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-teal-50 transition-colors"
                             >
                                 Make your first deposit →
                             </button>
@@ -373,8 +377,8 @@ export default function DashboardPage() {
                     )}
                 </div>
                 {data.transactions.length > 3 && (
-                    <div className="p-4 border-t border-slate-200/60 text-center bg-slate-50/50">
-                        <Link href="/dashboard/transactions" className="text-teal-600 hover:text-teal-700 font-medium text-sm transition-colors">
+                    <div className="px-5 py-4 border-t border-slate-200/60 text-center bg-slate-50/30">
+                        <Link href="/dashboard/transactions" className="inline-block text-teal-600 hover:text-teal-700 font-semibold text-sm py-2 px-4 rounded-xl hover:bg-teal-50 transition-colors">
                             View all {data.transactions.length} transactions
                         </Link>
                     </div>
