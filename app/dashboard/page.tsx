@@ -267,24 +267,24 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="hidden sm:flex bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm flex-col justify-center gap-4 sm:col-span-2 lg:col-span-1">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4 sm:col-span-2 lg:col-span-1">
                     <h3 className="font-semibold text-slate-700 text-sm">Quick Actions</h3>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         <button
                             type="button"
                             onClick={() => setDepositModalOpen(true)}
-                            className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all gap-2 group"
+                            className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all gap-1.5 sm:gap-2 group"
                         >
-                            <ArrowDownLeft className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-sm">Deposit</span>
+                            <ArrowDownLeft className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium text-xs sm:text-sm">Deposit</span>
                         </button>
-                        <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl transition-all gap-2 group">
-                            <ArrowUpRight className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-sm">Cash Out</span>
+                        <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-all gap-1.5 sm:gap-2 group">
+                            <Send className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium text-xs sm:text-sm">Send</span>
                         </Link>
-                        <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[76px] sm:min-h-[88px] p-3 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-all gap-2 group">
-                            <Send className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-sm">Send</span>
+                        <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl transition-all gap-1.5 sm:gap-2 group">
+                            <ArrowUpRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium text-xs sm:text-sm">Cash Out</span>
                         </Link>
                     </div>
                 </div>

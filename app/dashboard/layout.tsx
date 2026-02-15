@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { Home, ArrowLeftRight, Wallet, LogOut, Loader2, Menu, Send, History, X, UserCircle } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, LogOut, Loader2, Menu, Send, History, X, UserCircle, MoreHorizontal } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useEffect, useState } from 'react';
 
@@ -14,6 +14,15 @@ const navItems = [
     { href: '/dashboard/send', label: 'Send', icon: Send },
     { href: '/dashboard/transactions', label: 'Transactions', icon: History },
     { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
+];
+
+// Mobile bottom nav: Home, Deposit, Send, Cash Out, More (Send easily accessible)
+const mobileBottomNavItems = [
+    { href: '/dashboard', label: 'Home', icon: Home },
+    { href: '/dashboard/buy', label: 'Deposit', icon: ArrowLeftRight },
+    { href: '/dashboard/send', label: 'Send', icon: Send },
+    { href: '/dashboard/sell', label: 'Cash Out', icon: Wallet },
+    { href: null, label: 'More', icon: MoreHorizontal, isMenu: true },
 ];
 
 export default function DashboardLayout({
@@ -129,56 +138,83 @@ export default function DashboardLayout({
                 aria-hidden={!mobileMenuOpen}
             >
                 <div
-                    className="absolute inset-0 bg-slate-900/50 backdrop-blur-md transition-opacity duration-300"
+                    className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300"
                     onClick={() => setMobileMenuOpen(false)}
                     aria-hidden
                 />
                 <div
-                    className={`absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+                    className={`absolute right-0 top-0 bottom-0 w-[min(320px,85vw)] flex flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${
                         mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
+                    style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
                 >
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/60 shrink-0">
-                        <Link href="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center text-slate-900">
-                            <Logo iconOnly={false} size="md" variant="light" />
-                        </Link>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+                        <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Menu</span>
                         <button
                             type="button"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="p-2.5 -m-2 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                            className="p-2.5 -m-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
                             aria-label="Close menu"
                         >
-                            <X className="h-5 w-5 text-slate-600" />
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
-                    <nav className="flex-1 overflow-auto p-4 space-y-1">
-                        {navItems.map(({ href, label, icon: Icon }) => (
-                            <Link
-                                key={href}
-                                href={href}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className={`flex items-center gap-4 rounded-xl px-4 py-3.5 min-h-[52px] transition-colors ${
-                                    pathname === href
-                                        ? 'bg-teal-50 text-teal-700 font-semibold'
-                                        : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
-                                }`}
-                            >
-                                <div className={`p-2 rounded-lg shrink-0 ${pathname === href ? 'bg-teal-200/50' : 'bg-slate-100'}`}>
-                                    <Icon className="h-5 w-5" />
-                                </div>
-                                {label}
-                            </Link>
-                        ))}
+
+                    {/* Nav: Main */}
+                    <nav className="flex-1 overflow-auto py-4">
+                        <div className="px-3 pb-3">
+                            <p className="px-3 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Main</p>
+                            <div className="space-y-0.5 rounded-2xl bg-slate-50/80 p-1.5">
+                                {[navItems[0], navItems[1], navItems[3], navItems[2]].map(({ href, label, icon: Icon }) => (
+                                    <Link
+                                        key={href}
+                                        href={href}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`flex items-center gap-3 rounded-xl px-4 py-3.5 transition-colors ${
+                                            pathname === href
+                                                ? 'bg-white text-teal-700 font-semibold shadow-sm'
+                                                : 'text-slate-700 active:bg-white/80'
+                                        }`}
+                                    >
+                                        <Icon className={`h-5 w-5 shrink-0 ${pathname === href ? 'text-teal-600' : 'text-slate-400'}`} />
+                                        {label}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Nav: More */}
+                        <div className="px-3">
+                            <p className="px-3 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">More</p>
+                            <div className="space-y-0.5 rounded-2xl bg-slate-50/80 p-1.5">
+                                {[navItems[4], navItems[5]].map(({ href, label, icon: Icon }) => (
+                                    <Link
+                                        key={href}
+                                        href={href}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`flex items-center gap-3 rounded-xl px-4 py-3.5 transition-colors ${
+                                            pathname === href
+                                                ? 'bg-white text-teal-700 font-semibold shadow-sm'
+                                                : 'text-slate-700 active:bg-white/80'
+                                        }`}
+                                    >
+                                        <Icon className={`h-5 w-5 shrink-0 ${pathname === href ? 'text-teal-600' : 'text-slate-400'}`} />
+                                        {label}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
                     </nav>
-                    <div className="border-t border-slate-200/60 p-4">
+
+                    {/* Sign out */}
+                    <div className="p-4 pt-2 border-t border-slate-100 shrink-0">
                         <button
                             onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
-                            className="flex w-full items-center gap-4 rounded-xl px-4 py-3.5 min-h-[52px] text-left text-red-600 hover:bg-red-50 active:bg-red-100 font-medium transition-colors"
+                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-red-600 hover:bg-red-50 active:bg-red-100 font-medium transition-colors"
                         >
-                            <div className="p-2 rounded-lg bg-red-100 shrink-0">
-                                <LogOut className="h-5 w-5" />
-                            </div>
-                            Sign Out
+                            <LogOut className="h-5 w-5 shrink-0" />
+                            Sign out
                         </button>
                     </div>
                 </div>
@@ -213,22 +249,47 @@ export default function DashboardLayout({
                 </div>
             </main>
 
-            {/* Mobile Bottom Nav - Sleek pill style */}
-            <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around gap-1 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden bg-white/90 backdrop-blur-xl border-t border-slate-200/60">
-                {navItems.map(({ href, label, icon: Icon }) => (
-                    <Link
-                        key={href}
-                        href={href}
-                        className={`flex flex-col items-center gap-1 px-4 py-2 min-h-[52px] justify-center rounded-2xl transition-all duration-200 ${
-                            pathname === href
-                                ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                        }`}
-                    >
-                        <Icon className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">{label}</span>
-                    </Link>
-                ))}
+            {/* Mobile Bottom Nav - 4 main + More (opens menu: Send, Profile, Sign out) */}
+            <nav
+                className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 px-2 sm:px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-2px_10px_-2px_rgba(0,0,0,0.05)]"
+                aria-label="Main navigation"
+            >
+                {mobileBottomNavItems.map((item) => {
+                    const { href, label, icon: Icon, isMenu } = item as { href: string | null; label: string; icon: typeof Home; isMenu?: boolean };
+                    const isActive = !isMenu && pathname === href;
+                    if (isMenu) {
+                        return (
+                            <button
+                                key="more"
+                                type="button"
+                                onClick={() => setMobileMenuOpen(true)}
+                                className="flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-2.5 px-2 rounded-xl transition-all duration-200 text-slate-500 active:bg-slate-100"
+                                aria-label="More options: Send, Profile, Sign out"
+                            >
+                                <Icon className="w-6 h-6 shrink-0" strokeWidth={1.75} />
+                                <span className="text-[11px] font-medium truncate w-full text-center leading-tight text-slate-600">
+                                    {label}
+                                </span>
+                            </button>
+                        );
+                    }
+                    return (
+                        <Link
+                            key={href}
+                            href={href}
+                            className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-2.5 px-2 rounded-xl transition-all duration-200 ${
+                                isActive
+                                    ? 'text-teal-600 bg-teal-50'
+                                    : 'text-slate-500 active:bg-slate-100'
+                            }`}
+                        >
+                            <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'text-teal-600' : ''}`} strokeWidth={isActive ? 2.25 : 1.75} />
+                            <span className={`text-[11px] font-medium truncate w-full text-center leading-tight ${isActive ? 'text-teal-700' : 'text-slate-600'}`}>
+                                {label}
+                            </span>
+                        </Link>
+                    );
+                })}
             </nav>
         </div>
     );
