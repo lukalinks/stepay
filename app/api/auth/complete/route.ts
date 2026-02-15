@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { cookies } from 'next/headers';
+import { getSupabaseClientConfig } from '@/lib/supabase-client';
 
 export async function POST(request: Request) {
     try {
@@ -13,13 +14,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseAnonKey) {
-            return NextResponse.json({ error: 'Auth not configured' }, { status: 500 });
+        const config = getSupabaseClientConfig();
+        if (!config) {
+            return NextResponse.json({ error: 'Auth not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to Vercel env vars.' }, { status: 500 });
         }
 
-        const authClient = createClient(supabaseUrl, supabaseAnonKey);
+        const authClient = createClient(config.url, config.anonKey);
         const { data: { user: authUser }, error } = await authClient.auth.getUser(accessToken);
 
         if (error || !authUser?.email) {
