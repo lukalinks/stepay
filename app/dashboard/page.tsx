@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowUpRight, ArrowDownLeft, Wallet, Loader2, Send, ChevronDown, ChevronUp, ExternalLink, Copy } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DepositModal } from '@/components/DepositModal';
 
@@ -136,7 +136,31 @@ export default function DashboardPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [depositModalOpen, setDepositModalOpen] = useState(false);
+    const [slideIndex, setSlideIndex] = useState(0);
+    const sliderRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
+
+    const totalSlides = 3;
+
+    const handleSlideScroll = useCallback(() => {
+        const el = sliderRef.current;
+        if (!el) return;
+        const { scrollLeft, scrollWidth } = el;
+        const maxScroll = scrollWidth - el.offsetWidth;
+        if (maxScroll <= 0) return;
+        const progress = scrollLeft / maxScroll;
+        const index = Math.round(progress * (totalSlides - 1));
+        setSlideIndex(Math.min(Math.max(0, index), totalSlides - 1));
+    }, []);
+
+    const goToSlide = useCallback((index: number) => {
+        const el = sliderRef.current;
+        if (!el) return;
+        const maxScroll = el.scrollWidth - el.offsetWidth;
+        if (maxScroll <= 0) return;
+        const target = (index / (totalSlides - 1)) * maxScroll;
+        el.scrollTo({ left: target, behavior: 'smooth' });
+    }, []);
 
     const fetchData = useCallback(() => {
         fetch('/api/user')
@@ -231,62 +255,93 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Balance Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <div className="bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-teal-500/20 relative overflow-hidden min-h-[140px]">
-                    <div className="absolute top-0 right-0 p-3 sm:p-4 opacity-20">
-                        <Wallet className="w-16 h-16 sm:w-24 sm:h-24" />
-                    </div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur">
-                            <Wallet className="w-5 h-5" />
+            {/* Balance Cards Slider */}
+            <div className="-mx-4 sm:mx-0">
+                <div
+                    ref={sliderRef}
+                    onScroll={handleSlideScroll}
+                    className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth gap-3 sm:gap-4 px-4 sm:px-0 pb-2 snap-center [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    style={{ scrollSnapType: 'x mandatory' }}
+                >
+                    {/* XLM Card */}
+                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
+                        <div className="bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white shadow-lg shadow-teal-500/20 relative overflow-hidden min-h-[140px] sm:min-h-[155px]">
+                            <div className="absolute top-0 right-0 p-3 opacity-20">
+                                <Wallet className="w-14 h-14 sm:w-20 sm:h-20" />
+                            </div>
+                            <div className="relative z-10 flex justify-between items-start mb-3">
+                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur">
+                                    <Wallet className="w-4 h-4" />
+                                </div>
+                                <span className="bg-white/20 px-2 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase">XLM</span>
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-teal-100 text-xs font-medium mb-0.5">XLM Balance</p>
+                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{Number(data.balance.xlm).toLocaleString()} XLM</h2>
+                                <p className="text-teal-100/90 mt-1 text-xs font-medium">≈ ZMW {data.balance.xlmZmwEquiv}</p>
+                            </div>
                         </div>
-                        <span className="bg-white/15 px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wide uppercase">XLM</span>
                     </div>
-                    <div className="relative z-10">
-                        <p className="text-teal-200 text-xs sm:text-sm mb-1 font-medium">XLM Balance</p>
-                        <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{Number(data.balance.xlm).toLocaleString()} XLM</h2>
-                        <p className="text-teal-200/90 mt-1.5 text-sm">≈ ZMW {data.balance.xlmZmwEquiv}</p>
+
+                    {/* USDC Card */}
+                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
+                        <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden min-h-[140px] sm:min-h-[155px]">
+                            <div className="absolute top-0 right-0 p-3 opacity-20">
+                                <Wallet className="w-14 h-14 sm:w-20 sm:h-20" />
+                            </div>
+                            <div className="relative z-10 flex justify-between items-start mb-3">
+                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur">
+                                    <Wallet className="w-4 h-4" />
+                                </div>
+                                <span className="bg-white/20 px-2 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase">USDC</span>
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-emerald-100 text-xs font-medium mb-0.5">USDC Balance</p>
+                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{Number(data.balance.usdc || 0).toLocaleString()} USDC</h2>
+                                <p className="text-emerald-100/90 mt-1 text-xs font-medium">≈ ZMW {data.balance.usdcZmwEquiv}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Actions Card */}
+                    <div className="flex-shrink-0 w-[260px] sm:w-[220px] lg:w-[200px] min-w-0 snap-center">
+                        <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-lg shadow-slate-200/40 flex flex-col justify-between min-h-[140px] sm:min-h-[155px]">
+                            <h3 className="font-bold text-slate-800 text-xs mb-3">Quick Actions</h3>
+                            <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setDepositModalOpen(true)}
+                                    className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]"
+                                >
+                                    <ArrowDownLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    <span className="font-semibold text-xs">Deposit</span>
+                                </button>
+                                <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]">
+                                    <Send className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    <span className="font-semibold text-xs">Send</span>
+                                </Link>
+                                <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[60px] sm:min-h-[68px] p-2 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg transition-all gap-1.5 group active:scale-[0.98]">
+                                    <ArrowUpRight className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    <span className="font-semibold text-xs">Cash Out</span>
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden min-h-[140px]">
-                    <div className="absolute top-0 right-0 p-3 sm:p-4 opacity-20">
-                        <Wallet className="w-16 h-16 sm:w-24 sm:h-24" />
-                    </div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur">
-                            <Wallet className="w-5 h-5" />
-                        </div>
-                        <span className="bg-white/15 px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wide uppercase">USDC</span>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-emerald-200 text-xs sm:text-sm mb-1 font-medium">USDC Balance</p>
-                        <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{Number(data.balance.usdc || 0).toLocaleString()} USDC</h2>
-                        <p className="text-emerald-200/90 mt-1.5 text-sm">≈ ZMW {data.balance.usdcZmwEquiv}</p>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4 sm:col-span-2 lg:col-span-1">
-                    <h3 className="font-semibold text-slate-700 text-sm">Quick Actions</h3>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {/* Pagination dots */}
+                <div className="flex justify-center gap-1.5 mt-3">
+                    {[0, 1, 2].map((i) => (
                         <button
+                            key={i}
                             type="button"
-                            onClick={() => setDepositModalOpen(true)}
-                            className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all gap-1.5 sm:gap-2 group"
-                        >
-                            <ArrowDownLeft className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-xs sm:text-sm">Deposit</span>
-                        </button>
-                        <Link href="/dashboard/send" className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-all gap-1.5 sm:gap-2 group">
-                            <Send className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-xs sm:text-sm">Send</span>
-                        </Link>
-                        <Link href="/dashboard/sell" className="flex flex-col items-center justify-center min-h-[72px] sm:min-h-[88px] p-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl transition-all gap-1.5 sm:gap-2 group">
-                            <ArrowUpRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium text-xs sm:text-sm">Cash Out</span>
-                        </Link>
-                    </div>
+                            onClick={() => goToSlide(i)}
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                                slideIndex === i ? 'w-6 bg-teal-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                            }`}
+                            aria-label={`Go to slide ${i + 1}`}
+                        />
+                    ))}
                 </div>
             </div>
 
