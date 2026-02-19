@@ -47,7 +47,7 @@ let cachedRates: PlatformRates | null = null;
 let cachedFees: PlatformFees | null = null;
 let cachedLimits: PlatformLimits | null = null;
 let cacheExpiry = 0;
-const CACHE_MS = 60_000; // 1 min
+const CACHE_MS = 10_000; // 10 sec - admin changes should reflect quickly
 
 async function fetchFromDb<T>(key: string, defaultVal: T): Promise<T> {
   try {

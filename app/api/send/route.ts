@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -27,8 +27,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('stepay_user')?.value;
+        const userId = await getUserIdFromRequest(request);
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

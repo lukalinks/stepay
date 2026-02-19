@@ -1,20 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { invalidateRatesCache } from '@/lib/rates';
 
-/** Check if user is admin - TODO: replace with proper admin auth */
-async function isAdmin(): Promise<boolean> {
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('stepay_user')?.value;
+async function isAdmin(request: Request): Promise<boolean> {
+    const userId = await getUserIdFromRequest(request);
     if (!userId) return false;
     const { data } = await supabase.from('users').select('role').eq('id', userId).single();
     return data?.role === 'admin';
 }
 
 /** GET - fetch current settings */
-export async function GET() {
-    if (!(await isAdmin())) {
+export async function GET(request: Request) {
+    if (!(await isAdmin(request))) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
@@ -48,7 +46,7 @@ export async function GET() {
 
 /** PATCH - update rates and/or fees */
 export async function PATCH(request: Request) {
-    if (!(await isAdmin())) {
+    if (!(await isAdmin(request))) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {

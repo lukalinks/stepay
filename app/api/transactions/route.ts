@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('stepay_user')?.value;
+        const userId = await getUserIdFromRequest(request);
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

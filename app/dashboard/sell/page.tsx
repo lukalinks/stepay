@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
 import { Message } from '@/components/Message';
 
@@ -32,7 +32,7 @@ export default function SellPage() {
     const [fees, setFees] = useState({ sellPercent: 0 });
     const [limits, setLimits] = useState({ minWithdrawZmw: 4, maxWithdrawZmw: 50000 });
 
-    useEffect(() => {
+    const fetchRates = useCallback(() => {
         fetch('/api/rates')
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
@@ -42,6 +42,16 @@ export default function SellPage() {
             })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        fetchRates();
+    }, [fetchRates]);
+
+    useEffect(() => {
+        const onFocus = () => fetchRates();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [fetchRates]);
 
     const rate = rates[asset].sell;
     const feeMult = 1 - fees.sellPercent / 100;

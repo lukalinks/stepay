@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 
-async function requireAdmin() {
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('stepay_user')?.value;
+async function requireAdmin(request: Request): Promise<string | null> {
+    const userId = await getUserIdFromRequest(request);
     if (!userId) return null;
     const { data } = await supabase.from('users').select('role').eq('id', userId).single();
     return data?.role === 'admin' ? userId : null;
 }
 
-export async function GET() {
-    const adminId = await requireAdmin();
+export async function GET(request: Request) {
+    const adminId = await requireAdmin(request);
     if (!adminId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

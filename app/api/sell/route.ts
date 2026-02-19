@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { LencoService } from '@/lib/lenco';
 import { parseStellarError } from '@/lib/stellar-error';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { getRates, getFees, getLimits, cryptoToZmw } from '@/lib/rates';
 
@@ -16,8 +16,7 @@ export async function POST(request: Request) {
         const body = await request.json().catch(() => ({}));
         const { amount, asset = 'xlm', phone: reqPhone, operator: reqOperator } = body || {};
 
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('stepay_user')?.value;
+        const userId = await getUserIdFromRequest(request);
 
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

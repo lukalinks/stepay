@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { LencoService } from '@/lib/lenco';
 import { supabase } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { getRates, getFees, getLimits, zmwToCrypto } from '@/lib/rates';
 
@@ -21,8 +21,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { amount, phone, operator, asset } = schema.parse(body);
 
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('stepay_user')?.value;
+        const userId = await getUserIdFromRequest(request);
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

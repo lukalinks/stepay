@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowDownLeft, Loader2, Check, Smartphone, Wallet } from 'lucide-react';
 import { Message } from '@/components/Message';
 
@@ -44,7 +44,7 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
     const minZmw = limits.minDepositZmw;
     const maxZmw = limits.maxDepositZmw;
 
-    useEffect(() => {
+    const fetchRates = useCallback(() => {
         fetch('/api/rates')
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
@@ -53,6 +53,16 @@ export function DepositForm({ onSuccess, compact }: DepositFormProps) {
             })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        fetchRates();
+    }, [fetchRates]);
+
+    useEffect(() => {
+        const onFocus = () => fetchRates();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [fetchRates]);
 
     useEffect(() => {
         fetch('/api/user')

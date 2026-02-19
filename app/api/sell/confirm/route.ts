@@ -3,15 +3,14 @@ import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { LencoService } from '@/lib/lenco';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
-import { cookies } from 'next/headers';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { memo } = body;
 
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('stepay_user')?.value;
+        const userId = await getUserIdFromRequest(request);
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -5,7 +5,8 @@ import { getRates, getFees, getLimits } from '@/lib/rates';
 export async function GET() {
     try {
         const [rates, fees, limits] = await Promise.all([getRates(), getFees(), getLimits()]);
-        return NextResponse.json({
+        return NextResponse.json(
+            {
             rates: {
                 xlm: { buy: rates.xlm_buy, sell: rates.xlm_sell },
                 usdc: { buy: rates.usdc_buy, sell: rates.usdc_sell },
@@ -20,7 +21,13 @@ export async function GET() {
                 minWithdrawZmw: limits.min_withdraw_zmw,
                 maxWithdrawZmw: limits.max_withdraw_zmw,
             },
-        });
+        },
+        {
+            headers: {
+                'Cache-Control': 'no-store, max-age=0',
+            },
+        }
+        );
     } catch (err) {
         console.error('Rates API Error:', err);
         return NextResponse.json(
