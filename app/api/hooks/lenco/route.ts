@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { parseStellarError } from '@/lib/stellar-error';
 import { LencoService } from '@/lib/lenco';
+import { sendPushNotification } from '@/lib/push';
 import { createHmac, createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -151,6 +152,18 @@ export async function POST(request: Request) {
                             .update({ status: 'COMPLETED', tx_hash: txHash })
                             .eq('id', tx.id);
                         console.log(`Lenco webhook: completed deposit for ${reference}, txHash ${txHash}`);
+
+                        const pushToken = (user as { push_token?: string }).push_token;
+                        if (pushToken) {
+                            const asset = (tx.asset || 'xlm') as string;
+                            const amount = Number(tx.amount_xlm);
+                            sendPushNotification(
+                                pushToken,
+                                'Deposit complete',
+                                `${amount} ${asset.toUpperCase()} added to your wallet.`,
+                                { type: 'deposit', amount, asset }
+                            ).catch(() => {});
+                        }
                     } catch (stellarError) {
                         const errMsg = parseStellarError(stellarError);
                         console.error('Lenco webhook: Stellar send failed for', reference, errMsg);

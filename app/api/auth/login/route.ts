@@ -1,54 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
-import { StellarService } from '@/lib/stellar';
 import { cookies } from 'next/headers';
 import { getSupabaseClientConfig } from '@/lib/supabase-client';
+import { createOrGetAppUser } from '@/lib/auth';
 
 export async function GET() {
     return NextResponse.json({ message: 'Use POST with { email, password } to log in.' });
-}
-
-async function createOrGetAppUser(authUser: { id: string; email?: string | null }) {
-    const email = authUser.email;
-    if (!email) return null;
-
-    let { data: appUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', authUser.id)
-        .single();
-
-    if (!appUser) {
-        const { data: byEmail } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (byEmail) {
-            await supabase.from('users').update({ auth_id: authUser.id }).eq('id', byEmail.id);
-            appUser = { ...byEmail, auth_id: authUser.id };
-        } else {
-            const keypair = StellarService.generateAccount();
-            const { data: newUser, error } = await supabase
-                .from('users')
-                .insert({
-                    email,
-                    auth_id: authUser.id,
-                    phone_number: null,
-                    pin_hash: 'password-auth',
-                    wallet_public: keypair.publicKey,
-                    wallet_secret: keypair.secretKey,
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-            appUser = newUser;
-        }
-    }
-    return appUser;
 }
 
 export async function POST(request: Request) {
@@ -76,7 +33,7 @@ export async function POST(request: Request) {
 
         const authClient = createClient(config.url, config.anonKey);
 
-        const { data: { user: authUser }, error } = await authClient.auth.signInWithPassword({
+        const { data: { user: authUser, session }, error } = await authClient.auth.signInWithPassword({
             email: trimmed,
             password: pwd,
         });
@@ -85,6 +42,9 @@ export async function POST(request: Request) {
             if (error.message === 'Invalid login credentials') {
                 return NextResponse.json({ error: 'Invalid email or password. Don\'t have an account? Sign up first.' }, { status: 401 });
             }
+            if (error.message?.toLowerCase().includes('email not confirmed')) {
+                return NextResponse.json({ error: 'Email not confirmed. Check your inbox for a confirmation link, then try again.' }, { status: 401 });
+            }
             return NextResponse.json({ error: error.message || 'Login failed' }, { status: 400 });
         }
 
@@ -92,19 +52,35 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
         }
 
-        const appUser = await createOrGetAppUser(authUser);
-        if (!appUser) {
+        const userId = await createOrGetAppUser(authUser);
+        if (!userId) {
             return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
         }
 
-        const cookieStore = await cookies();
-        cookieStore.set('stepay_user', appUser.id, {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7,
-        });
+        let isMobile = false;
+        try {
+            const url = new URL(request.url);
+            isMobile = url.searchParams.get('client') === 'mobile';
+        } catch {
+            // request.url may be relative in some environments
+        }
 
-        return NextResponse.json({ success: true });
+        if (!isMobile) {
+            const cookieStore = await cookies();
+            cookieStore.set('stepay_user', userId, {
+                httpOnly: true,
+                path: '/',
+                maxAge: 60 * 60 * 24 * 7,
+            });
+        }
+
+        const payload: { success: boolean; accessToken?: string; refreshToken?: string } = { success: true };
+        if (isMobile && session?.access_token && session?.refresh_token) {
+            payload.accessToken = session.access_token;
+            payload.refreshToken = session.refresh_token;
+        }
+
+        return NextResponse.json(payload);
     } catch (err) {
         let message = 'Login failed';
         if (err instanceof Error) {

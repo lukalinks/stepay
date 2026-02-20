@@ -98,7 +98,6 @@ export function invalidateRatesCache() {
 }
 
 /** For buy: ZMW → crypto. Accounts for buy fee if any. */
-/** For buy: ZMW → crypto. Accounts for buy fee if any. */
 export function zmwToCrypto(zmw: number, asset: 'xlm' | 'usdc', rates: PlatformRates, fees: PlatformFees): number {
   const rate = asset === 'usdc' ? rates.usdc_buy : rates.xlm_buy;
   const feeMult = 1 - fees.buy_percent / 100;

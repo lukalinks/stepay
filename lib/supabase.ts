@@ -13,6 +13,7 @@ export interface DbUser {
   email?: string | null;
   auth_id?: string | null;
   phone_number?: string | null;
+  preferred_operator?: string | null;
   full_name?: string | null;
   address?: string | null;
   id_document_type?: string | null;
@@ -20,6 +21,7 @@ export interface DbUser {
   pin_hash: string;
   wallet_secret: string;
   wallet_public: string;
+  role?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +35,8 @@ export interface DbTransaction {
   status: string;
   reference: string;
   tx_hash: string | null;
+  deposit_memo?: string | null;
+  asset?: string | null;
   created_at: string;
   updated_at: string;
 }

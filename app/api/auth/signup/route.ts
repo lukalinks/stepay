@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
-import { StellarService } from '@/lib/stellar';
 import { cookies } from 'next/headers';
 import { getSupabaseClientConfig } from '@/lib/supabase-client';
+import { createOrGetAppUser } from '@/lib/auth';
 
 export async function GET() {
     return NextResponse.json({ message: 'Use POST with { email, password } to sign up.' });
@@ -27,10 +26,14 @@ export async function POST(request: Request) {
         if (!config) {
             return NextResponse.json({ error: 'Auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to Vercel env vars.' }, { status: 500 });
         }
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+        if (!serviceKey || serviceKey === 'placeholder-key-for-build') {
+            return NextResponse.json({ error: 'Server auth not configured. Add SUPABASE_SERVICE_ROLE_KEY to Vercel env vars.' }, { status: 500 });
+        }
 
         const authClient = createClient(config.url, config.anonKey);
 
-        const { data: { user: authUser }, error } = await authClient.auth.signUp({
+        const { data: { user: authUser, session }, error } = await authClient.auth.signUp({
             email: trimmed,
             password: pwd,
             options: { emailRedirectTo: undefined },
@@ -47,33 +50,35 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Sign up failed' }, { status: 500 });
         }
 
-        const keypair = StellarService.generateAccount();
-        const { data: appUser, error: insertError } = await supabase
-            .from('users')
-            .insert({
-                email: authUser.email,
-                auth_id: authUser.id,
-                phone_number: null,
-                pin_hash: 'password-auth',
-                wallet_public: keypair.publicKey,
-                wallet_secret: keypair.secretKey,
-            })
-            .select()
-            .single();
-
-        if (insertError) {
-            console.error('Create user error:', insertError);
+        const userId = await createOrGetAppUser(authUser);
+        if (!userId) {
             return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
         }
 
-        const cookieStore = await cookies();
-        cookieStore.set('stepay_user', appUser.id, {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7,
-        });
+        let isMobile = false;
+        try {
+            const url = new URL(request.url);
+            isMobile = url.searchParams.get('client') === 'mobile';
+        } catch {
+            // request.url may be relative in some environments
+        }
 
-        return NextResponse.json({ success: true });
+        if (!isMobile) {
+            const cookieStore = await cookies();
+            cookieStore.set('stepay_user', userId, {
+                httpOnly: true,
+                path: '/',
+                maxAge: 60 * 60 * 24 * 7,
+            });
+        }
+
+        const payload: { success: boolean; accessToken?: string; refreshToken?: string } = { success: true };
+        if (isMobile && session?.access_token && session?.refresh_token) {
+            payload.accessToken = session.access_token;
+            payload.refreshToken = session.refresh_token;
+        }
+
+        return NextResponse.json(payload);
     } catch (err) {
         console.error('Sign up Error:', err);
         return NextResponse.json({ error: 'Sign up failed' }, { status: 500 });

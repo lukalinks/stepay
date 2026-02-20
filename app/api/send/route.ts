@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { getUserIdFromRequest } from '@/lib/auth';
+import { sendPushNotification } from '@/lib/push';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -116,6 +117,16 @@ export async function POST(request: Request) {
                 tx_hash: txHash,
                 asset: asset,
             });
+
+            const pushToken = (user as { push_token?: string }).push_token;
+            if (pushToken) {
+                sendPushNotification(
+                    pushToken,
+                    'Send complete',
+                    `${amount} ${asset.toUpperCase()} sent successfully.`,
+                    { type: 'send', amount, asset }
+                ).catch(() => {});
+            }
 
             return NextResponse.json({
                 success: true,

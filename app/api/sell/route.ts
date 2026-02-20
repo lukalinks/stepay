@@ -6,6 +6,7 @@ import { parseStellarError } from '@/lib/stellar-error';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { getRates, getFees, getLimits, cryptoToZmw } from '@/lib/rates';
+import { sendPushNotification } from '@/lib/push';
 
 export async function GET() {
     return NextResponse.json({ message: 'Use POST to cash out. See docs for payload.' });
@@ -161,6 +162,16 @@ export async function POST(request: Request) {
             .from('transactions')
             .update({ status: 'COMPLETED', tx_hash: txHash })
             .eq('id', txRecord.id);
+
+        const pushToken = (user as { push_token?: string }).push_token;
+        if (pushToken) {
+            sendPushNotification(
+                pushToken,
+                'Cash out complete',
+                `Sold ${amountNum} ${assetLabel}. ZMW ${amountFiat.toFixed(2)} sent to your mobile money.`,
+                { type: 'cashout', amountFiat, asset: assetLabel }
+            ).catch(() => {});
+        }
 
         return NextResponse.json({
             success: true,

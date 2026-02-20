@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Client',
 };
 
 export function middleware(request: NextRequest) {
@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
         return response;
     }
 
-    if (pathname.startsWith('/admin')) {
+    if (pathname.startsWith('/admin') || pathname.startsWith('/dashboard')) {
         const userId = request.cookies.get('stepay_user')?.value;
         if (!userId) {
             const loginUrl = new URL('/login', request.url);
@@ -33,5 +33,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*', '/api/:path*'],
+    matcher: ['/admin/:path*', '/dashboard/:path*', '/api/:path*'],
 };

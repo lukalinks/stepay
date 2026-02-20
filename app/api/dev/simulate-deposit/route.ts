@@ -4,7 +4,12 @@ import { StellarService } from '@/lib/stellar';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { getUserIdFromRequest } from '@/lib/auth';
 
+const isDev = process.env.NODE_ENV === 'development' || process.env.ALLOW_SIMULATE_DEPOSIT === 'true';
+
 export async function POST(request: Request) {
+    if (!isDev) {
+        return NextResponse.json({ error: 'Simulate deposit is only available in development' }, { status: 403 });
+    }
     try {
         const body = await request.json();
         const { amount, memo, asset = 'xlm' } = body;

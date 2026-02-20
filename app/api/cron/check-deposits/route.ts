@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { StellarService } from '@/lib/stellar';
 import { parseStellarError } from '@/lib/stellar-error';
 import { LencoService } from '@/lib/lenco';
+import { sendPushNotification } from '@/lib/push';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -91,6 +92,18 @@ export async function GET(request: Request) {
                     .eq('id', tx.id);
                 console.log(`Cron check-deposits: completed ${reference}, txHash ${txHash}`);
                 completed++;
+
+                const pushToken = (user as { push_token?: string }).push_token;
+                if (pushToken) {
+                    const asset = (tx.asset || 'xlm') as string;
+                    const amount = Number(tx.amount_xlm);
+                    sendPushNotification(
+                        pushToken,
+                        'Deposit complete',
+                        `${amount} ${asset.toUpperCase()} added to your wallet.`,
+                        { type: 'deposit', amount, asset }
+                    ).catch(() => {});
+                }
             } catch (stellarError) {
                 const errMsg = parseStellarError(stellarError);
                 console.error('Cron check-deposits: Stellar failed for', reference, errMsg);
