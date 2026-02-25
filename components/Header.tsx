@@ -15,6 +15,8 @@ interface HeaderProps {
   /** Optional class for logo (e.g. text-xl for larger wordmark) */
   logoClassName?: string;
   className?: string;
+  /** Transparent variant for use over dark hero sections */
+  transparent?: boolean;
 }
 
 export function Header({
@@ -24,6 +26,7 @@ export function Header({
   logoSize = 'md',
   logoClassName = '',
   className = '',
+  transparent = false,
 }: HeaderProps) {
   const maxWidthClass = {
     full: 'max-w-7xl',
@@ -31,10 +34,14 @@ export function Header({
     narrow: 'max-w-3xl',
   }[maxWidth];
 
+  const headerBg = transparent
+    ? 'absolute top-0 left-0 right-0 z-40 bg-transparent'
+    : 'sticky top-0 z-40 border-b border-slate-200/60 bg-white/95 backdrop-blur-xl';
+
+  const logoTextClass = transparent ? 'text-white' : 'text-slate-900';
+
   return (
-    <header
-      className={`sticky top-0 z-40 border-b border-slate-200/60 bg-white/95 backdrop-blur-xl ${className}`}
-    >
+    <header className={`${headerBg} ${className}`}>
       <div
         className="flex min-h-14 items-center justify-between gap-4 px-4 pb-3 sm:min-h-16 sm:px-6 sm:pb-4"
         style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
@@ -42,15 +49,19 @@ export function Header({
         <div className={`flex flex-1 items-center justify-between gap-4 ${maxWidthClass} w-full mx-auto`}>
           <Link
             href="/"
-            className={`flex min-h-10 min-w-10 -m-2 items-center justify-center rounded-xl text-slate-900 transition-opacity hover:opacity-80 active:opacity-90 ${logoClassName}`}
+            className={`flex min-h-10 min-w-10 -m-2 items-center justify-center rounded-xl ${logoTextClass} transition-opacity hover:opacity-80 active:opacity-90 ${logoClassName}`}
           >
-            <Logo iconOnly={false} size={logoSize} variant="light" />
+            <Logo iconOnly={false} size={logoSize} variant={transparent ? 'dark' : 'light'} />
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
             {showBack && (
               <Link
                 href="/"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-teal-600 active:bg-slate-100"
+                className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  transparent
+                    ? 'text-white/70 hover:text-white hover:bg-white/10'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-teal-600 active:bg-slate-100'
+                }`}
               >
                 ← Back
               </Link>
