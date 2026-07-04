@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" role="img" aria-label="Zamtel">
+  <g fill="#0072BC">
+    <path d="M24 4C12.4 4 3 13.4 3 25s9.4 21 21 21 21-9.4 21-21S35.6 4 24 4zm0 4.2c9.2 0 16.8 7.6 16.8 16.8S33.2 41.8 24 41.8 7.2 34.2 7.2 25 14.8 8.2 24 8.2z" opacity=".15"/>
+    <path d="M11 25c0-7.2 5.8-13 13-13" fill="none" stroke="#0072BC" stroke-width="4" stroke-linecap="round"/>
+    <path d="M11 25c0 7.2 5.8 13 13 13" fill="none" stroke="#0072BC" stroke-width="4" stroke-linecap="round"/>
+    <path d="M11 18.5c4.8-2.8 10.7-2.8 15.5 0" fill="none" stroke="#0072BC" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M11 31.5c4.8 2.8 10.7 2.8 15.5 0" fill="none" stroke="#0072BC" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+  <text x="56" y="31" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="800" letter-spacing="0.06em" fill="#0072BC">ZAMTEL</text>
+</svg>
