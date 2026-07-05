@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { guardConfirmRequest } from '@/lib/confirm-api';
+import { coerceIntentPayload } from '@/lib/intent-payload';
 import { hasServerStoredSecret } from '@/lib/wallet-custody';
-import { verifyAndConsumeIntent, verifyIntentForClientSign } from '@/lib/sign-intents';
+import { verifyAndConsumeIntent, verifyIntentForClientSign, readClientPlan, reverifyConfirmedIntentCode } from '@/lib/sign-intents';
 import { buildSellClientPlan, executeSell, parseSellPayload } from '@/lib/operations/sell';
 import { RateLimitError, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -25,20 +26,40 @@ export async function POST(request: Request) {
 
         if (await hasServerStoredSecret(userId)) {
             const intent = await verifyAndConsumeIntent(intentId, userId, confirmCode);
-            const payload = parseSellPayload(intent.payload as Record<string, unknown>);
+            const payload = parseSellPayload(coerceIntentPayload(intent.payload));
             const result = await executeSell(userId, payload, { intentId, request });
             return NextResponse.json(result);
         }
 
         const intentRows = await sql`
-            SELECT payload FROM sign_intents WHERE id = ${intentId} AND user_id = ${userId} LIMIT 1
+            SELECT payload, status FROM sign_intents WHERE id = ${intentId} AND user_id = ${userId} LIMIT 1
         `;
-        const pendingPayload = (intentRows[0] as { payload?: Record<string, unknown> } | undefined)?.payload;
-        if (!pendingPayload) {
+        const row = intentRows[0] as { payload?: unknown; status?: string } | undefined;
+        if (!row) {
             return NextResponse.json({ success: false, error: 'Confirmation request not found.' }, { status: 400 });
         }
 
-        const payload = parseSellPayload(pendingPayload);
+        const intentPayload = coerceIntentPayload(row.payload);
+
+        if (row.status === 'confirmed') {
+            await reverifyConfirmedIntentCode(intentId, userId, confirmCode);
+            const plan = readClientPlan({ id: intentId, user_id: userId, type: 'SELL', payload: intentPayload, status: row.status, attempts: 0, expires_at: '' });
+            if (!plan) {
+                return NextResponse.json({ success: false, error: 'Missing transaction plan. Please start cash out again.' }, { status: 400 });
+            }
+            return NextResponse.json({
+                success: true,
+                requiresClientSign: true,
+                intentId,
+                plan,
+            });
+        }
+
+        if (row.status !== 'pending') {
+            return NextResponse.json({ success: false, error: 'This confirmation request is no longer valid.' }, { status: 400 });
+        }
+
+        const payload = parseSellPayload(intentPayload);
         const plan = await buildSellClientPlan(userId, payload);
         await verifyIntentForClientSign(intentId, userId, confirmCode, plan as Record<string, unknown>);
 

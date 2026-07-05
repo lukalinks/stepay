@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
 import { sql } from '@/lib/db';
+import { assertSafeWebhookUrl } from '@/lib/url-security';
 
 export type CheckoutPaidEvent = {
     event: 'checkout.paid';
@@ -9,7 +10,8 @@ export type CheckoutPaidEvent = {
     amount: number;
     asset: string;
     txHash: string;
-    payerId: string;
+    payerId: string | null;
+    paymentMethod: 'wallet' | 'mobile_money';
     paidAt: string;
     metadata: Record<string, unknown>;
 };
@@ -21,11 +23,21 @@ function signPayload(secret: string, body: string, timestamp: number): string {
 
 export async function deliverCheckoutWebhook(
     checkout: Record<string, unknown>,
-    payerId: string,
-    txHash: string
+    payerId: string | null,
+    txHash: string,
+    paymentMethod: 'wallet' | 'mobile_money' = payerId ? 'wallet' : 'mobile_money'
 ): Promise<void> {
     const webhookUrl = checkout.webhook_url ? String(checkout.webhook_url) : '';
     if (!webhookUrl) return;
+
+    let safeWebhookUrl: string;
+    try {
+        safeWebhookUrl = assertSafeWebhookUrl(webhookUrl) ?? '';
+    } catch {
+        console.error('Merchant webhook blocked (unsafe URL):', webhookUrl);
+        return;
+    }
+    if (!safeWebhookUrl) return;
 
     let webhookSecret = '';
     const apiKeyId = checkout.api_key_id ? String(checkout.api_key_id) : null;
@@ -59,6 +71,7 @@ export async function deliverCheckoutWebhook(
         asset: String(checkout.asset),
         txHash,
         payerId,
+        paymentMethod,
         paidAt: new Date().toISOString(),
         metadata,
     };
@@ -69,7 +82,7 @@ export async function deliverCheckoutWebhook(
 
     let responseStatus: number | null = null;
     try {
-        const res = await fetch(webhookUrl, {
+        const res = await fetch(safeWebhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -93,7 +106,7 @@ export async function deliverCheckoutWebhook(
         INSERT INTO merchant_webhook_deliveries (checkout_id, webhook_url, event_type, payload, response_status)
         VALUES (
             ${String(checkout.id)},
-            ${webhookUrl},
+            ${safeWebhookUrl},
             'checkout.paid',
             ${body}::jsonb,
             ${responseStatus}

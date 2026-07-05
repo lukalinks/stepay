@@ -33,9 +33,12 @@ export default {
                 if (user.email) {
                     token.email = user.email;
                 }
-                const u = user as { role?: string };
+                const u = user as { role?: string; sessionTokenVersion?: number };
                 if (u.role) {
                     token.role = u.role;
+                }
+                if (typeof u.sessionTokenVersion === 'number') {
+                    token.tv = u.sessionTokenVersion;
                 }
             }
             return token;

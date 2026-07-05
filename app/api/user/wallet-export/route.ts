@@ -4,6 +4,8 @@ import { sql } from '@/lib/db';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { auditSign, clientIp, getUserWalletSecret, loadUserWalletRow } from '@/lib/signer';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
+import { createWalletEmailVerification, verifyWalletEmailCode } from '@/lib/wallet-restore-verify';
+import { hasServerStoredSecret } from '@/lib/wallet-custody';
 
 export async function POST(request: Request) {
     try {
@@ -13,13 +15,47 @@ export async function POST(request: Request) {
         }
 
         const ip = clientIp(request) || 'unknown';
+        const body = await request.json().catch(() => ({}));
+        const action = typeof body.action === 'string' ? body.action : 'export';
+
+        if (action === 'intent') {
+            if (!(await hasServerStoredSecret(userId))) {
+                return NextResponse.json(
+                    { error: 'Self-custody wallets export from this device only. Use Settings on the device where your wallet is stored.' },
+                    { status: 400 }
+                );
+            }
+
+            await assertRateLimit(rateLimitKey('wallet-export-intent', [userId]), 5, 60 * 60 * 1000);
+            await assertRateLimit(rateLimitKey('wallet-export-intent-ip', [ip]), 10, 60 * 60 * 1000);
+
+            const rows = await sql`SELECT email FROM users WHERE id = ${userId} LIMIT 1`;
+            const email = (rows[0] as { email: string | null } | undefined)?.email?.trim();
+            if (!email) {
+                return NextResponse.json({ error: 'Email not found on account.' }, { status: 400 });
+            }
+
+            const result = await createWalletEmailVerification(userId, email, 'wallet-export');
+            return NextResponse.json({ success: true, ...result });
+        }
+
         await assertRateLimit(rateLimitKey('wallet-export', [userId]), 5, 60 * 60 * 1000);
         await assertRateLimit(rateLimitKey('wallet-export-ip', [ip]), 10, 60 * 60 * 1000);
 
-        const body = await request.json().catch(() => ({}));
         const password = typeof body.password === 'string' ? body.password : '';
+        const confirmCode = typeof body.confirmCode === 'string' ? body.confirmCode : '';
         if (!password) {
             return NextResponse.json({ error: 'Password is required to export your wallet.' }, { status: 400 });
+        }
+        if (!confirmCode) {
+            return NextResponse.json({ error: 'Email verification code is required.' }, { status: 400 });
+        }
+
+        if (!(await hasServerStoredSecret(userId))) {
+            return NextResponse.json(
+                { error: 'Self-custody wallets export from this device only. Use Settings on the device where your wallet is stored.' },
+                { status: 400 }
+            );
         }
 
         const rows = await sql`
@@ -35,6 +71,8 @@ export async function POST(request: Request) {
             await assertRateLimit(rateLimitKey('wallet-export-fail', [userId]), 10, 60 * 60 * 1000);
             return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });
         }
+
+        await verifyWalletEmailCode(userId, confirmCode, 'wallet-export');
 
         const wallet = await loadUserWalletRow(userId);
         if (!wallet) {
@@ -61,7 +99,14 @@ export async function POST(request: Request) {
             const r = rateLimitResponse(err);
             return NextResponse.json({ error: r.error }, { status: r.status, headers: { 'Retry-After': String(r.retryAfterSec) } });
         }
+        const msg = err instanceof Error ? err.message : 'Failed to export wallet';
+        const status =
+            msg.includes('Incorrect') || msg.includes('expired') || msg.includes('Too many') || msg.includes('6-digit')
+                ? 400
+                : msg.includes('Self-custody') || msg.includes('device only')
+                  ? 400
+                  : 500;
         console.error('Wallet export error:', err);
-        return NextResponse.json({ error: 'Failed to export wallet.' }, { status: 500 });
+        return NextResponse.json({ error: msg }, { status });
     }
 }

@@ -98,10 +98,14 @@ function AuthShellInner({ mode, title, subtitle, children, footer }: AuthShellPr
             </Suspense>
           )}
           <Stack spacing={0.75} sx={{ mb: 3 }}>
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 800, letterSpacing: '-0.03em' }}>
+            <Typography
+              variant="h5"
+              component="h1"
+              sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}
+            >
               {title}
             </Typography>
-            <Typography sx={{ color: BRAND.textMuted, fontSize: '0.9375rem', lineHeight: 1.6 }}>{subtitle}</Typography>
+            <Typography sx={{ color: BRAND.textMuted, fontSize: '0.9375rem', lineHeight: 1.65 }}>{subtitle}</Typography>
           </Stack>
           {children}
           {footer && (

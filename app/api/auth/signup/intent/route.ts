@@ -5,6 +5,8 @@ import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from
 import { clientIp } from '@/lib/signer';
 import { createSignupVerification } from '@/lib/signup-verify';
 import { isSupportedCountry, resolveCountryCode } from '@/lib/markets';
+import { validatePassword } from '@/lib/password-policy';
+import { clearAllSessionCookies } from '@/lib/session-cookies';
 
 export async function POST(request: Request) {
     try {
@@ -16,8 +18,9 @@ export async function POST(request: Request) {
         if (!email || !email.includes('@')) {
             return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 });
         }
-        if (!password || password.length < 6) {
-            return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+        const passwordErr = validatePassword(password);
+        if (passwordErr) {
+            return NextResponse.json({ error: passwordErr }, { status: 400 });
         }
 
         const countryCode =
@@ -42,13 +45,15 @@ export async function POST(request: Request) {
         const { signupId, confirmCode } = await createSignupVerification(email, password, countryCode);
         const { delivery, maskedEmail } = await deliverConfirmCode(email, confirmCode, 'signup');
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             signupId,
             codeDelivery: delivery,
             maskedEmail,
             ...(delivery === 'dev' ? { devConfirmCode: confirmCode } : {}),
         });
+        clearAllSessionCookies(response);
+        return response;
     } catch (err) {
         if (err instanceof RateLimitError) {
             const r = rateLimitResponse(err);

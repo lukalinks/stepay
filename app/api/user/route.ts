@@ -15,7 +15,10 @@ export async function GET(request: Request) {
         }
 
         const userRows = await sql`
-            SELECT * FROM users WHERE id = ${userId} LIMIT 1
+            SELECT id, email, phone_number, preferred_operator, full_name, address,
+                   id_document_type, id_document_number, wallet_public,
+                   wallet_secret, wallet_secret_enc, country_code, role
+            FROM users WHERE id = ${userId} LIMIT 1
         `;
         const user = userRows[0] as Record<string, unknown> | undefined;
 

@@ -26,14 +26,18 @@ import {
 import { clientEnsureUSDCTrustline } from '@/lib/client-stellar';
 import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
 import { BRAND, authTextFieldSx, primaryCtaSx } from '@/lib/brand';
+import { RestoreWalletDialog, shouldOfferCloudRestore } from '@/components/wallet/RestoreWalletDialog';
 
 type WalletContextValue = {
     unlocked: boolean;
     localPublicKey: string | null;
     walletCustody: 'self' | 'hosted' | null;
+    hasCloudBackup: boolean;
     lock: () => void;
     requestUnlock: () => void;
+    openRestore: () => void;
     ensureUsdcReady: () => Promise<void>;
+    refreshLocalWallet: () => void;
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -47,11 +51,17 @@ export function useWallet() {
 function WalletUnlockDialog({
     open,
     serverWalletPublic,
+    hasCloudBackup,
+    onClose,
     onUnlocked,
+    onUseCloudRestore,
 }: {
     open: boolean;
     serverWalletPublic?: string | null;
+    hasCloudBackup: boolean;
+    onClose: () => void;
     onUnlocked: () => void;
+    onUseCloudRestore: () => void;
 }) {
     const [password, setPassword] = useState('');
     const [importSecret, setImportSecret] = useState('');
@@ -63,8 +73,11 @@ function WalletUnlockDialog({
 
     useEffect(() => {
         if (open) {
+            setMode(hasLocalWallet() ? 'unlock' : 'import');
             setHint(consumeWalletUnlockHint());
             setError(null);
+            setPassword('');
+            setImportSecret('');
         }
     }, [open]);
 
@@ -72,7 +85,7 @@ function WalletUnlockDialog({
         if (!serverWalletPublic) return;
         if (publicKey !== serverWalletPublic.trim()) {
             throw new Error(
-                'This secret key does not match your Stepay account. Import the key you saved from Profile → Wallet.'
+                'This secret key does not match your Stepay account. Import the key you saved from Settings.'
             );
         }
     };
@@ -103,6 +116,7 @@ function WalletUnlockDialog({
     return (
         <Dialog
             open={open}
+            onClose={onClose}
             maxWidth="xs"
             fullWidth
             slotProps={{ paper: { sx: { bgcolor: BRAND.surface, color: '#fff' } } }}
@@ -111,9 +125,11 @@ function WalletUnlockDialog({
             <DialogContent>
                 <Stack spacing={2} sx={{ pt: 0.5 }}>
                     <Typography sx={{ fontSize: '0.875rem', color: BRAND.textMuted }}>
-                        Your wallet lives on this device. Enter your account password to sign transactions.
-                        {!hasLocalWallet() &&
-                            ' On a new phone, import the secret key you saved in Profile → Wallet.'}
+                        {mode === 'import'
+                            ? hasCloudBackup
+                                ? 'Import your secret key, or use cloud restore (email code + password) instead.'
+                                : 'Import the secret key you saved in Settings, or enable cloud backup for easier device changes.'
+                            : 'Enter your account password to sign transactions.'}
                     </Typography>
                     <Typography sx={{ fontSize: '0.75rem', color: BRAND.textSubtle }}>
                         Wallet stays unlocked on this device for 24 hours.
@@ -151,6 +167,18 @@ function WalletUnlockDialog({
                     <Button variant="contained" onClick={handleUnlock} disabled={loading || password.length < 6 || !secureContext} sx={primaryCtaSx}>
                         {loading ? 'Unlocking…' : mode === 'import' ? 'Import & unlock' : 'Unlock wallet'}
                     </Button>
+                    {mode === 'import' && hasCloudBackup && (
+                        <Button
+                            variant="text"
+                            onClick={() => {
+                                onClose();
+                                onUseCloudRestore();
+                            }}
+                            sx={{ color: BRAND.accent, textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Restore with email code instead
+                        </Button>
+                    )}
                     {hasLocalWallet() && (
                         <Button
                             variant="text"
@@ -170,25 +198,32 @@ export function WalletProvider({
     children,
     walletCustody,
     serverWalletPublic,
+    hasCloudBackup = false,
 }: {
     children: React.ReactNode;
     walletCustody: 'self' | 'hosted' | null;
     serverWalletPublic?: string | null;
+    hasCloudBackup?: boolean;
 }) {
     const [unlocked, setUnlocked] = useState(false);
     const [showUnlock, setShowUnlock] = useState(false);
+    const [showRestore, setShowRestore] = useState(false);
     const [localPublicKey, setLocalPublicKey] = useState<string | null>(null);
 
-    useEffect(() => {
+    const refreshLocalWallet = useCallback(() => {
         setLocalPublicKey(getLocalWalletPublicKey());
         setUnlocked(isWalletUnlocked());
     }, []);
 
     useEffect(() => {
-        if (walletCustody === 'self' && !isWalletUnlocked()) {
-            setShowUnlock(true);
+        refreshLocalWallet();
+    }, [refreshLocalWallet]);
+
+    useEffect(() => {
+        if (shouldOfferCloudRestore(walletCustody, hasCloudBackup)) {
+            setShowRestore(true);
         }
-    }, [walletCustody]);
+    }, [walletCustody, hasCloudBackup]);
 
     useEffect(() => {
         const onActivity = () => touchWalletSession();
@@ -200,15 +235,22 @@ export function WalletProvider({
         };
     }, []);
 
-    const requestUnlock = useCallback(() => {
-        setShowUnlock(true);
+    const openRestore = useCallback(() => {
+        setShowRestore(true);
     }, []);
+
+    const requestUnlock = useCallback(() => {
+        if (shouldOfferCloudRestore(walletCustody, hasCloudBackup)) {
+            setShowRestore(true);
+            return;
+        }
+        setShowUnlock(true);
+    }, [walletCustody, hasCloudBackup]);
 
     const lock = useCallback(() => {
         clearWalletSession();
         setUnlocked(false);
-        if (walletCustody === 'self') setShowUnlock(true);
-    }, [walletCustody]);
+    }, []);
 
     const ensureUsdcReady = useCallback(async () => {
         if (!isWalletUnlocked()) return;
@@ -234,22 +276,33 @@ export function WalletProvider({
             unlocked,
             localPublicKey,
             walletCustody,
+            hasCloudBackup,
             lock,
             requestUnlock,
+            openRestore,
             ensureUsdcReady,
+            refreshLocalWallet,
         }),
-        [unlocked, localPublicKey, walletCustody, lock, requestUnlock, ensureUsdcReady]
+        [unlocked, localPublicKey, walletCustody, hasCloudBackup, lock, requestUnlock, openRestore, ensureUsdcReady, refreshLocalWallet]
     );
 
     return (
         <WalletContext.Provider value={value}>
             {children}
+            <RestoreWalletDialog
+                open={showRestore && walletCustody === 'self' && hasCloudBackup}
+                serverWalletPublic={serverWalletPublic}
+                onClose={() => setShowRestore(false)}
+                onRestored={refreshLocalWallet}
+            />
             <WalletUnlockDialog
                 open={showUnlock && walletCustody === 'self'}
+                hasCloudBackup={hasCloudBackup}
                 serverWalletPublic={serverWalletPublic}
+                onClose={() => setShowUnlock(false)}
+                onUseCloudRestore={() => setShowRestore(true)}
                 onUnlocked={() => {
-                    setLocalPublicKey(getLocalWalletPublicKey());
-                    setUnlocked(true);
+                    refreshLocalWallet();
                     setShowUnlock(false);
                 }}
             />

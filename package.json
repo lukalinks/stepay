@@ -11,7 +11,9 @@
     "db:setup": "node scripts/setup-db.mjs",
     "db:migrate-wallets": "node scripts/migrate-wallet-secrets.mjs",
     "test:fields": "node scripts/test-all-fields.mjs",
-    "test:features": "node scripts/test-all-features.mjs"
+    "test:features": "node scripts/test-all-features.mjs",
+    "test:security": "node scripts/test-security-fixes.mjs",
+    "test:security:integration": "node scripts/test-security-fixes.mjs --integration"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

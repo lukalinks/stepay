@@ -14,10 +14,13 @@ import { AuthFormError } from '@/components/auth/AuthAlert';
 import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { createLocalWallet } from '@/components/wallet/WalletProvider';
-import { removeLocalWallet } from '@/lib/client-wallet';
+import { removeLocalWallet, clearAccountLocalState, exportVaultForBackup } from '@/lib/client-wallet';
+import { setExpectedUserId } from '@/lib/client-account-sync';
 import { confirmDeliveryHint } from '@/lib/confirm-ui';
-import { accentLinkSx, authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
+import { accentLinkSx, authTextFieldSx, authSelectMenuProps, BRAND, primaryCtaSx } from '@/lib/brand';
+import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/password-policy';
 import { listMarkets } from '@/lib/markets';
+import { isChunkLoadError, reloadOnceForChunkError } from '@/lib/chunk-recovery';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type SignupStep = 'form' | 'verify';
@@ -27,12 +30,14 @@ function toFriendlyAuthError(msg?: string): string {
     const m = msg.toLowerCase();
     if (m.includes('already') || (m.includes('email') && m.includes('exists'))) return 'An account with this email already exists. Try signing in instead.';
     if (m.includes('invalid') && m.includes('email')) return 'Please enter a valid email address.';
-    if (m.includes('password') && (m.includes('short') || m.includes('weak') || m.includes('length'))) return 'Your password should be at least 6 characters long.';
+    if (m.includes('password') && (m.includes('short') || m.includes('weak') || m.includes('length'))) return `Your password should be at least ${MIN_PASSWORD_LENGTH} characters long.`;
     if (m.includes('too many') || m.includes('rate limit')) return 'Too many signup attempts. Please wait a few minutes and try again.';
     if (m.includes('incorrect') || m.includes('verification code')) return msg;
     if (m.includes('expired')) return msg;
     if (m.includes('wallet')) return msg ?? 'Invalid wallet details.';
-    if (m.includes('confirmation email') || m.includes('send confirmation')) return msg;
+    if (m.includes('failed to load chunk') || m.includes('loading chunk')) {
+        return 'Stepay was just updated. Please refresh the page and try again.';
+    }
     return msg;
 }
 
@@ -51,9 +56,10 @@ function SignupForm() {
     const [devHint, setDevHint] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [cloudBackupEnabled, setCloudBackupEnabled] = useState(true);
 
     const passwordsMatch = password === confirmPassword;
-    const canSubmitForm = email.trim().includes('@') && password.length >= 6 && passwordsMatch;
+    const canSubmitForm = email.trim().includes('@') && password.length >= MIN_PASSWORD_LENGTH && passwordsMatch;
     const canVerify = otpCode.replace(/\D/g, '').length === 6;
 
     const handleSendCode = async (e: React.FormEvent) => {
@@ -65,8 +71,9 @@ function SignupForm() {
             setError('Please enter a valid email address.');
             return;
         }
-        if (password.length < 6) {
-            setError('Your password should be at least 6 characters long.');
+        const pwdErr = validatePassword(password);
+        if (pwdErr) {
+            setError(pwdErr);
             return;
         }
         if (!passwordsMatch) {
@@ -74,12 +81,17 @@ function SignupForm() {
             return;
         }
 
+        clearAccountLocalState();
+
         setIsLoading(true);
 
         try {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+
             const res = await fetch('/api/auth/signup/intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email: trimmedEmail, password, countryCode }),
             });
 
@@ -113,28 +125,56 @@ function SignupForm() {
         setIsLoading(true);
 
         try {
+            clearAccountLocalState();
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+
             const { publicKey: walletPublic } = await createLocalWallet(password);
+            const walletBackup = cloudBackupEnabled ? exportVaultForBackup() : null;
+            if (cloudBackupEnabled && !walletBackup) {
+                removeLocalWallet();
+                setError('Could not secure your wallet backup. Please try again.');
+                return;
+            }
 
             const res = await fetch('/api/auth/signup/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ signupId, code: otpCode, walletPublic }),
+                credentials: 'include',
+                body: JSON.stringify({
+                    signupId,
+                    code: otpCode,
+                    walletPublic,
+                    cloudBackupEnabled,
+                    walletBackup,
+                }),
             });
 
             const data = await res.json().catch(() => ({}));
 
             if (res.ok) {
+                if (typeof data.userId === 'string') {
+                    setExpectedUserId(data.userId);
+                }
                 const target = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
                 const sep = target.includes('?') ? '&' : '?';
-                router.refresh();
-                router.push(`${target}${sep}welcome=1`);
+                window.location.href = `${target}${sep}welcome=1&_=${Date.now()}`;
+                return;
             } else {
                 removeLocalWallet();
                 setError(toFriendlyAuthError(data.error));
             }
         } catch (err) {
             removeLocalWallet();
-            setError(err instanceof Error ? err.message : 'We couldn\'t reach our servers. Please check your internet connection and try again.');
+            if (isChunkLoadError(err) && reloadOnceForChunkError()) {
+                return;
+            }
+            setError(
+                isChunkLoadError(err)
+                    ? 'Stepay was just updated. Refresh the page and enter your code again.'
+                    : err instanceof Error
+                      ? err.message
+                      : 'We couldn\'t reach our servers. Please check your internet connection and try again.'
+            );
         } finally {
             setIsLoading(false);
         }
@@ -147,6 +187,7 @@ function SignupForm() {
             const res = await fetch('/api/auth/signup/intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email: email.trim(), password, countryCode }),
             });
             const data = await res.json().catch(() => ({}));
@@ -174,7 +215,7 @@ function SignupForm() {
             subtitle={
                 step === 'verify'
                     ? deliveryHint || 'Enter the 6-digit code we sent to your email.'
-                    : 'Your keys stay on this device. Back up your secret key anytime in Profile.'
+                    : 'Your keys stay on this device. Back up your secret key anytime in Settings.'
             }
             footer={
                 <>
@@ -224,12 +265,14 @@ function SignupForm() {
                                 '& input': { textAlign: 'center', letterSpacing: '0.3em', fontWeight: 700 },
                             }}
                             helperText="Code expires in 10 minutes"
-                            slotProps={{ formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } } }}
+                            slotProps={{
+                                formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } },
+                            }}
                         />
                         <Button type="submit" variant="contained" disabled={isLoading || !canVerify} fullWidth sx={primaryCtaSx}>
-                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.bg }} /> : 'Verify & create account'}
+                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Verify & create account'}
                         </Button>
-                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between' }}>
+                        <Stack spacing={1} sx={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                             <Button
                                 type="button"
                                 variant="text"
@@ -268,7 +311,10 @@ function SignupForm() {
                             fullWidth
                             sx={authTextFieldSx}
                             helperText="Local currency and payment options depend on your country"
-                            slotProps={{ formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } } }}
+                            slotProps={{
+                                select: authSelectMenuProps,
+                                formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } },
+                            }}
                         >
                             {listMarkets().map((market) => (
                                 <MenuItem key={market.countryCode} value={market.countryCode}>
@@ -296,7 +342,7 @@ function SignupForm() {
                             onChange={setPassword}
                             autoComplete="new-password"
                             showStrength
-                            helperText="Encrypts your wallet on this device — at least 6 characters"
+                            helperText={`Encrypts your wallet on this device. At least ${MIN_PASSWORD_LENGTH} characters.`}
                         />
                         <AuthPasswordField
                             id="confirmPassword"
@@ -307,8 +353,31 @@ function SignupForm() {
                             showMatch
                             matchValue={password}
                         />
+                        <Box
+                            component="label"
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 1.25,
+                                cursor: 'pointer',
+                                fontSize: '0.8125rem',
+                                color: BRAND.textMuted,
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={cloudBackupEnabled}
+                                onChange={(e) => setCloudBackupEnabled(e.target.checked)}
+                                style={{ marginTop: 4 }}
+                            />
+                            <span>
+                                <strong style={{ color: BRAND.accentLight }}>Save encrypted cloud backup</strong> (recommended) —
+                                restore on a new phone with your password and email code. Uncheck for device-only maximum privacy.
+                            </span>
+                        </Box>
                         <Button type="submit" variant="contained" disabled={isLoading || !canSubmitForm} fullWidth sx={primaryCtaSx}>
-                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.bg }} /> : 'Continue'}
+                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Continue'}
                         </Button>
                     </Stack>
                 </Box>
@@ -322,7 +391,7 @@ export default function SignupPage() {
         <Suspense
             fallback={
                 <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: BRAND.bg }}>
-                    <CircularProgress sx={{ color: BRAND.accent }} />
+                    <CircularProgress sx={{ color: BRAND.accentContrast }} />
                 </Box>
             }
         >

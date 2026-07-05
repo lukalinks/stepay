@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { authSessionCookieName, buildSessionCookieOptions, issueAuthJwt } from '@/lib/issue-jwt';
+import { issueAuthJwt } from '@/lib/issue-jwt';
+import { setSessionCookie } from '@/lib/session-cookies';
 import { verifyUserCredentials } from '@/lib/verify-credentials';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
             id: user.id,
             email: user.email,
             role: user.role,
+            sessionTokenVersion: user.sessionTokenVersion,
         });
 
         if (isMobile) {
@@ -67,8 +69,8 @@ export async function POST(request: Request) {
         }
 
         /** Web: must set session cookie here — `signIn()` from a Route Handler does not send Set-Cookie to the browser. */
-        const response = NextResponse.json({ success: true });
-        response.cookies.set(authSessionCookieName(), token, buildSessionCookieOptions());
+        const response = NextResponse.json({ success: true, userId: user.id, email: user.email });
+        setSessionCookie(response, token);
         return response;
     } catch (err) {
         if (err instanceof RateLimitError) {

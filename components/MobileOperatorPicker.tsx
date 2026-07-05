@@ -58,7 +58,7 @@ export function MobileOperatorPicker({
                                 src={brand.logo}
                                 alt={`${op.label} logo`}
                                 fill
-                                className={`object-contain ${op.id === 'airtel' ? 'p-0.5' : 'p-1'}`}
+                                className={`object-contain ${op.id === 'airtel' ? 'p-0.5' : op.id === 'zamtel' ? 'p-1.5' : 'p-1'}`}
                                 sizes={compact ? '80px' : '112px'}
                             />
                         </span>

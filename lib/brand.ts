@@ -51,6 +51,36 @@ export const authTextFieldSx = {
   },
   '& .MuiInputLabel-root': { color: BRAND.textMuted },
   '& .MuiInputLabel-root.Mui-focused': { color: BRAND.accent },
+  '& .MuiSelect-icon': { color: BRAND.textMuted },
+  '& .MuiFormHelperText-root': { color: BRAND.textSubtle, mx: 0, mt: 0.75, lineHeight: 1.45 },
+};
+
+/** Dark dropdown for auth / profile selects (MUI Select MenuProps) */
+export const authSelectMenuProps = {
+  MenuProps: {
+    slotProps: {
+      paper: {
+        sx: {
+          bgcolor: '#141414',
+          border: `1px solid ${BRAND.borderStrong}`,
+          backgroundImage: 'none',
+          mt: 0.5,
+          maxHeight: 280,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
+          '& .MuiMenuItem-root': {
+            color: '#fff',
+            fontSize: '0.9375rem',
+            py: 1.1,
+            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
+            '&.Mui-selected': {
+              bgcolor: BRAND.accentMuted,
+              '&:hover': { bgcolor: 'rgba(201, 169, 98, 0.18)' },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export const accentLinkSx = {

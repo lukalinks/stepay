@@ -4,7 +4,7 @@ const SMTP_FROM =
     process.env.SMTP_USER?.trim() ||
     'Stepay <noreply@stepay.pro>';
 
-export type ConfirmAction = 'send' | 'sell' | 'swap' | 'signup' | 'admin-login';
+export type ConfirmAction = 'send' | 'sell' | 'swap' | 'signup' | 'admin-login' | 'wallet-restore' | 'wallet-backup-upload' | 'wallet-backup-delete' | 'wallet-export';
 
 const ACTION_LABELS: Record<ConfirmAction, string> = {
     send: 'confirm a crypto send',
@@ -12,6 +12,10 @@ const ACTION_LABELS: Record<ConfirmAction, string> = {
     swap: 'confirm a swap',
     signup: 'verify your email and create your Stepay account',
     'admin-login': 'sign in to the Stepay admin panel',
+    'wallet-restore': 'restore your wallet on this device',
+    'wallet-backup-upload': 'save your encrypted wallet backup',
+    'wallet-backup-delete': 'turn off your encrypted wallet backup',
+    'wallet-export': 'export your wallet secret key',
 };
 
 async function sendViaResend(to: string, subject: string, html: string): Promise<boolean> {

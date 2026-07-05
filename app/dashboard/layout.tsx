@@ -16,6 +16,7 @@ import {
     Store,
     MoreHorizontal,
     BarChart3,
+    Settings,
     X as CloseIcon,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
@@ -27,7 +28,8 @@ import { PAGE_META } from '@/lib/dashboard-ui';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
 import { DashboardWalletExtras } from '@/components/wallet/DashboardWalletExtras';
-import { clearWalletSession } from '@/lib/client-wallet';
+import { clearAccountLocalState } from '@/lib/client-wallet';
+import { isStaleSessionAfterSignup, syncClientAccountSession } from '@/lib/client-account-sync';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import BottomNavigation from '@mui/material/BottomNavigation';
@@ -75,6 +77,7 @@ const NAV_SECTIONS: NavSection[] = [
             { href: '/dashboard/merchant', label: 'Merchant', icon: Store },
             { href: '/dashboard/rates', label: 'Rates', icon: BarChart3 },
             { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
+            { href: '/dashboard/settings', label: 'Settings', icon: Settings },
         ],
     },
 ];
@@ -92,6 +95,8 @@ type UserSummary = {
     phone?: string | null;
     role?: string;
     walletCustody?: 'self' | 'hosted';
+    hasCloudBackup?: boolean;
+    cloudBackupEnabled?: boolean;
     walletPublic?: string | null;
     isProfileComplete?: boolean;
 };
@@ -206,7 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const timeout = window.setTimeout(() => controller.abort(), 15_000);
 
         // Lightweight profile fetch — full /api/user hits Stellar and can exceed the abort timeout.
-        fetch('/api/user/profile', { signal: controller.signal })
+        fetch(`/api/user/profile?_=${Date.now()}`, { signal: controller.signal, credentials: 'include', cache: 'no-store' })
             .then(async (res) => {
                 if (res.status === 401) {
                     const returnTo =
@@ -218,12 +223,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 }
                 if (res.ok) {
                     const data = await res.json();
+                    if (typeof data.userId === 'string') {
+                        if (isStaleSessionAfterSignup(data.userId)) {
+                            clearAccountLocalState();
+                            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+                            window.location.href = '/login?error=session';
+                            return;
+                        }
+                        syncClientAccountSession(data.userId);
+                    }
                     setProfileIncomplete(data.isProfileComplete === false);
                     setUserSummary({
                         email: data.email,
                         fullName: data.fullName,
                         phone: data.phone,
                         walletCustody: data.walletCustody ?? 'self',
+                        hasCloudBackup: Boolean(data.hasCloudBackup),
+                        cloudBackupEnabled: data.cloudBackupEnabled !== false,
                         walletPublic: data.walletPublic ?? null,
                         isProfileComplete: data.isProfileComplete !== false,
                     });
@@ -240,15 +256,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             controller.abort();
             window.clearTimeout(timeout);
         };
-    }, [router]);
+    }, [router, pathname]);
 
     const handleSignOut = async () => {
         try {
-            clearWalletSession();
-            await fetch('/api/auth/logout', { method: 'POST' });
-            router.replace('/login');
+            clearAccountLocalState();
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            window.location.href = '/login';
         } catch {
-            router.replace('/login');
+            clearAccountLocalState();
+            window.location.href = '/login';
         }
     };
 
@@ -319,6 +336,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <WalletProvider
             walletCustody={userSummary?.walletCustody ?? null}
             serverWalletPublic={userSummary?.walletPublic}
+            hasCloudBackup={Boolean(userSummary?.hasCloudBackup)}
         >
         <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: BRAND.bg }} className="dashboard-grain">
             {/* Desktop sidebar */}

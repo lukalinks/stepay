@@ -40,6 +40,15 @@ function corsHeaders(request: Request): Record<string, string> {
     };
 }
 
+const EMBED_CHECKOUT_CSP =
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://horizon.stellar.org https://api.lenco.co https://*.lenco.co wss:; frame-ancestors *; base-uri 'self'; form-action 'self'; object-src 'none'";
+
+function applyEmbeddableCheckoutHeaders(response: NextResponse): NextResponse {
+    response.headers.set('Content-Security-Policy', EMBED_CHECKOUT_CSP);
+    response.headers.delete('X-Frame-Options');
+    return response;
+}
+
 function isAdminSubdomainAllowedPath(pathname: string): boolean {
     return (
         pathname.startsWith('/admin') ||
@@ -64,6 +73,10 @@ export default auth((request) => {
             if (value) response.headers.set(key, value);
         });
         return response;
+    }
+
+    if (pathname.startsWith('/pay/checkout')) {
+        return applyEmbeddableCheckoutHeaders(NextResponse.next());
     }
 
     if (onAdminHost && !pathname.startsWith('/api') && !pathname.startsWith('/_next')) {
@@ -104,5 +117,5 @@ export default auth((request) => {
 });
 
 export const config = {
-    matcher: ['/', '/login', '/admin/:path*', '/dashboard/:path*', '/api/:path*'],
+    matcher: ['/', '/login', '/admin/:path*', '/dashboard/:path*', '/api/:path*', '/pay/checkout/:path*'],
 };

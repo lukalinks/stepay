@@ -20,7 +20,8 @@ export async function GET(request: Request) {
 
         const userRows = await sql`
             SELECT email, full_name, phone_number, address, id_document_type, id_document_number,
-                   wallet_public, wallet_secret, wallet_secret_enc, country_code
+                   wallet_public, wallet_secret, wallet_secret_enc,
+                   wallet_backup_enc, wallet_backup_enabled, country_code
             FROM users WHERE id = ${userId} LIMIT 1
         `;
         const user = userRows[0] as Record<string, unknown> | undefined;
@@ -38,10 +39,13 @@ export async function GET(request: Request) {
             user.wallet_secret_enc || (user.wallet_secret && String(user.wallet_secret).trim())
                 ? ('hosted' as const)
                 : ('self' as const);
+        const hasCloudBackup = Boolean(user.wallet_backup_enabled && user.wallet_backup_enc);
+        const cloudBackupEnabled = Boolean(user.wallet_backup_enabled);
         const countryCode = String(user.country_code ?? 'ZM');
         const market = getMarket(countryCode);
 
         return NextResponse.json({
+            userId,
             email: user.email,
             fullName: user.full_name,
             phone: user.phone_number,
@@ -50,6 +54,8 @@ export async function GET(request: Request) {
             idDocumentNumber: user.id_document_number,
             walletPublic: user.wallet_public,
             walletCustody,
+            hasCloudBackup,
+            cloudBackupEnabled,
             countryCode: market.countryCode,
             currency: market.currency,
             market: marketToJson(market),

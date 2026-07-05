@@ -23,7 +23,8 @@ function toFriendlySellError(msg?: string): string {
     const m = msg.toLowerCase();
     if (m.includes('insufficient') || m.includes('balance')) return msg;
     if (m.includes('minimum') || m.includes('maximum')) return msg;
-    if (m.includes('valid amount') || m.includes('positive number')) return 'Enter a valid amount greater than zero.';
+    if (m.includes('valid amount to cash out') || m.includes('positive number')) return 'Enter a valid amount greater than zero.';
+    if (m.includes('invalid amount')) return 'Could not verify the transaction amount. Please start cash out again.';
     if (m.includes('keep') && m.includes('xlm')) return msg;
     if (m.includes('wallet')) return 'Your wallet couldn\'t be found. Please contact support.';
     if (m.includes('payout') || m.includes('lenco')) return 'We couldn\'t send the cash to your phone right now. Your crypto is safe—please try again or contact support.';

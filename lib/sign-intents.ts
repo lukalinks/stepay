@@ -1,4 +1,6 @@
+import postgres from 'postgres';
 import { sql } from '@/lib/db';
+import { coerceIntentPayload } from '@/lib/intent-payload';
 import { decryptWalletSecret, encryptWalletSecret, generateConfirmCode, hashConfirmCode } from '@/lib/wallet-crypto';
 
 export type SignIntentType = 'SEND' | 'SELL' | 'SWAP';
@@ -31,7 +33,7 @@ export async function createSignIntent(
         VALUES (
             ${userId},
             ${type},
-            ${JSON.stringify(payload)}::jsonb,
+            ${sql.json(payload as Record<string, postgres.JSONValue>)},
             ${salt + '|' + confirmCodeHash},
             ${expiresAt}
         )
@@ -96,14 +98,15 @@ async function verifyIntentInternal(opts: VerifyIntentOpts): Promise<SignIntentR
             throw new Error('Incorrect confirmation code.');
         }
 
+        const basePayload = coerceIntentPayload(row.payload);
         const mergedPayload =
             opts.clientPlan != null
-                ? { ...(row.payload as Record<string, unknown>), _clientPlan: opts.clientPlan }
-                : row.payload;
+                ? { ...basePayload, _clientPlan: opts.clientPlan }
+                : basePayload;
 
         const updated = await tx`
             UPDATE sign_intents
-            SET status = ${opts.nextStatus}, confirmed_at = NOW(), payload = ${JSON.stringify(mergedPayload)}::jsonb
+            SET status = ${opts.nextStatus}, confirmed_at = NOW(), payload = ${sql.json(mergedPayload as Record<string, postgres.JSONValue>)}
             WHERE id = ${opts.intentId} AND user_id = ${opts.userId} AND status = 'pending'
             RETURNING *
         `;
@@ -164,9 +167,49 @@ export async function consumeConfirmedIntent(intentId: string, userId: string): 
 }
 
 export function readClientPlan(intent: SignIntentRow): Record<string, unknown> | null {
-    const payload = intent.payload as Record<string, unknown>;
+    const payload = coerceIntentPayload(intent.payload);
     const plan = payload._clientPlan;
-    return plan && typeof plan === 'object' ? (plan as Record<string, unknown>) : null;
+    return plan && typeof plan === 'object' && !Array.isArray(plan) ? (plan as Record<string, unknown>) : null;
+}
+
+/** Re-verify OTP for a confirmed client-sign intent (page refresh) — still requires the email code. */
+export async function reverifyConfirmedIntentCode(
+    intentId: string,
+    userId: string,
+    confirmCode: string
+): Promise<SignIntentRow> {
+    const normalizedCode = confirmCode.replace(/\D/g, '');
+
+    return sql.begin(async (tx) => {
+        const rows = await tx`
+            SELECT * FROM sign_intents
+            WHERE id = ${intentId} AND user_id = ${userId}
+            FOR UPDATE
+        `;
+        const row = rows[0] as IntentRowWithHash | undefined;
+        if (!row) {
+            throw new Error('Confirmation request not found.');
+        }
+        if (row.status !== 'confirmed') {
+            throw new Error('This confirmation request is no longer valid.');
+        }
+        if (new Date(row.expires_at).getTime() < Date.now()) {
+            await tx`UPDATE sign_intents SET status = 'expired' WHERE id = ${intentId}`;
+            throw new Error('Confirmation code expired. Please start again.');
+        }
+
+        const [salt, expectedHash] = row.confirm_code_hash.split('|');
+        if (!salt || !expectedHash) {
+            throw new Error('Invalid confirmation state.');
+        }
+
+        const actualHash = hashConfirmCode(normalizedCode, salt);
+        if (actualHash !== expectedHash) {
+            throw new Error('Incorrect confirmation code.');
+        }
+
+        return row;
+    });
 }
 
 export { encryptWalletSecret, decryptWalletSecret };

@@ -30,8 +30,8 @@ export function OnboardingChecklist({ profileComplete, walletUnlocked }: Checkli
         },
         {
             done: false,
-            label: 'Back up secret key in Profile',
-            href: '/dashboard/profile#wallet-security',
+            label: 'Back up secret key in Settings',
+            href: '/dashboard/settings#wallet-security',
         },
         { done: false, label: 'Make your first deposit', href: '/dashboard/buy' },
     ];

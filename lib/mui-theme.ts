@@ -89,6 +89,18 @@ export function createStepayTheme() {
           },
         },
       },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: 'none',
+          },
+        },
+      },
+      MuiCircularProgress: {
+        defaultProps: {
+          size: 24,
+        },
+      },
     },
   });
 }

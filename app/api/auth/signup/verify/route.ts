@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
-import { authSessionCookieName, buildSessionCookieOptions, issueAuthJwt } from '@/lib/issue-jwt';
+import { issueAuthJwt } from '@/lib/issue-jwt';
+import { setSessionCookie } from '@/lib/session-cookies';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
 import { verifySignupAndCreateUser } from '@/lib/signup-verify';
+import {
+    parseWalletVaultBackup,
+    serializeWalletVaultBackup,
+    validateVaultMatchesPublic,
+} from '@/lib/wallet-backup-server';
 
 export async function POST(request: Request) {
     try {
@@ -28,7 +34,23 @@ export async function POST(request: Request) {
             );
         }
 
-        const { userId, email } = await verifySignupAndCreateUser(signupId, code, walletPublic);
+        const cloudBackupEnabled = body.cloudBackupEnabled !== false;
+        let walletBackupEnc: string | null = null;
+        if (cloudBackupEnabled) {
+            const vault = parseWalletVaultBackup(body.walletBackup);
+            if (!vault || !validateVaultMatchesPublic(vault, walletPublic)) {
+                return NextResponse.json(
+                    { error: 'Wallet backup failed. Please try again or turn off cloud backup.' },
+                    { status: 400 }
+                );
+            }
+            walletBackupEnc = serializeWalletVaultBackup(vault);
+        }
+
+        const { userId, email } = await verifySignupAndCreateUser(signupId, code, walletPublic, {
+            walletBackupEnc,
+            cloudBackupEnabled,
+        });
 
         const token = await issueAuthJwt({
             id: userId,
@@ -52,8 +74,8 @@ export async function POST(request: Request) {
             });
         }
 
-        const response = NextResponse.json({ success: true });
-        response.cookies.set(authSessionCookieName(), token, buildSessionCookieOptions());
+        const response = NextResponse.json({ success: true, userId, email });
+        setSessionCookie(response, token);
         return response;
     } catch (err) {
         if (err instanceof RateLimitError) {

@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import MuiLink from '@mui/material/Link';
 import { AuthFormError } from '@/components/auth/AuthAlert';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/password-policy';
 import { authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
 
 function ResetPasswordContent() {
@@ -34,8 +35,9 @@ function ResetPasswordContent() {
             setError('Your passwords don\'t match. Please type them again.');
             return;
         }
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters.');
+        const pwdErr = validatePassword(password);
+        if (pwdErr) {
+            setError(pwdErr);
             return;
         }
 
@@ -108,7 +110,7 @@ function ResetPasswordContent() {
                             fullWidth
                             autoFocus
                             sx={authTextFieldSx}
-                            slotProps={{ htmlInput: { minLength: 6, autoComplete: 'new-password' } }}
+                            slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH, autoComplete: 'new-password' } }}
                         />
                         <Typography variant="caption" sx={{ mt: 0.75, display: 'block', color: BRAND.textSubtle }}>
                             At least 6 characters
@@ -127,7 +129,7 @@ function ResetPasswordContent() {
                         required
                         fullWidth
                         sx={authTextFieldSx}
-                        slotProps={{ htmlInput: { minLength: 6, autoComplete: 'new-password' } }}
+                        slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH, autoComplete: 'new-password' } }}
                     />
                     <Button type="submit" variant="contained" disabled={isLoading} fullWidth sx={primaryCtaSx}>
                         {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Reset password'}

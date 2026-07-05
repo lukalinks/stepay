@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdminLogin } from '@/lib/admin-login';
-import { authSessionCookieName, buildSessionCookieOptions, issueAuthJwt } from '@/lib/issue-jwt';
+import { issueAuthJwt } from '@/lib/issue-jwt';
+import { setSessionCookie } from '@/lib/session-cookies';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
 
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
         });
 
         const response = NextResponse.json({ success: true });
-        response.cookies.set(authSessionCookieName(), token, buildSessionCookieOptions());
+        setSessionCookie(response, token);
         return response;
     } catch (err) {
         if (err instanceof RateLimitError) {

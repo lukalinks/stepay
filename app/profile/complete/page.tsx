@@ -12,7 +12,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { AuthAlert } from '@/components/auth/AuthAlert';
 import { AuthShell } from '@/components/auth/AuthShell';
-import { accentLinkSx, authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
+import { accentLinkSx, authTextFieldSx, authSelectMenuProps, BRAND, primaryCtaSx } from '@/lib/brand';
 import { getMarket, listMarkets } from '@/lib/markets';
 import { localPhoneDisplayForMarket } from '@/lib/phone';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -120,7 +120,7 @@ function ProfileCompleteForm() {
     if (isChecking) {
         return (
             <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: BRAND.bg }}>
-                <CircularProgress sx={{ color: BRAND.accent }} />
+                <CircularProgress sx={{ color: BRAND.accentContrast }} />
             </Box>
         );
     }
@@ -166,8 +166,8 @@ function ProfileCompleteForm() {
                             required
                             fullWidth
                             sx={authTextFieldSx}
-                            helperText={`Payments in ${market.currency} · ${market.paymentMethods.includes('mobile_money') ? 'Mobile money only' : 'See available methods at checkout'}`}
-                            slotProps={{ formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } } }}
+                            helperText={`Payments in ${market.currency}. ${market.paymentMethods.includes('mobile_money') ? 'Mobile money only' : 'See available methods at checkout'}`}
+                            slotProps={{ select: authSelectMenuProps }}
                         >
                             {listMarkets().map((m) => (
                                 <MenuItem key={m.countryCode} value={m.countryCode}>
@@ -226,7 +226,7 @@ function ProfileCompleteForm() {
 
                     <Stack spacing={2}>
                         <Typography sx={sectionLabelSx}>ID verification</Typography>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Stack spacing={2} sx={{ flexDirection: { xs: 'column', sm: 'row' } }}>
                             <TextField
                                 select
                                 label="ID type"
@@ -235,6 +235,7 @@ function ProfileCompleteForm() {
                                 required
                                 fullWidth
                                 sx={authTextFieldSx}
+                                slotProps={{ select: authSelectMenuProps }}
                             >
                                 {market.idDocumentTypes.map((type) => (
                                     <MenuItem key={type.id} value={type.id}>
@@ -256,7 +257,7 @@ function ProfileCompleteForm() {
                     </Stack>
 
                     <Button type="submit" variant="contained" disabled={isLoading} fullWidth sx={primaryCtaSx}>
-                        {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.bg }} /> : 'Save and continue'}
+                        {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Save and continue'}
                     </Button>
                 </Stack>
             </Box>
@@ -269,7 +270,7 @@ export default function ProfileCompletePage() {
         <Suspense
             fallback={
                 <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: BRAND.bg }}>
-                    <CircularProgress sx={{ color: BRAND.accent }} />
+                    <CircularProgress sx={{ color: BRAND.accentContrast }} />
                 </Box>
             }
         >

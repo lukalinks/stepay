@@ -8,6 +8,7 @@ import { getPlatformWalletSecret } from '@/lib/platform-signer';
 import { randomBytes } from 'crypto';
 import { verifyOutgoingPayment } from '@/lib/stellar-tx-verify';
 import { parsePositiveDecimalOrThrow } from '@/lib/parse-amount';
+import { coerceIntentPayload } from '@/lib/intent-payload';
 import type { ClientPaymentPlan } from '@/lib/client-stellar';
 
 export type SwapPayload = {
@@ -255,8 +256,9 @@ export async function finalizeSwapClientTx(
 }
 
 export function parseSwapPayload(body: Record<string, unknown>): SwapPayload {
-    const from = body.from === 'usdc' ? 'usdc' : 'xlm';
-    const to = body.to === 'usdc' ? 'usdc' : 'xlm';
-    const amount = parsePositiveDecimalOrThrow(body.amount, 'Enter a valid amount to swap.');
+    const raw = coerceIntentPayload(body);
+    const from = raw.from === 'usdc' ? 'usdc' : 'xlm';
+    const to = raw.to === 'usdc' ? 'usdc' : 'xlm';
+    const amount = parsePositiveDecimalOrThrow(raw.amount, 'Enter a valid amount to swap.');
     return { from, to, amount };
 }

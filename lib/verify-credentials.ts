@@ -5,14 +5,14 @@ import { sql } from '@/lib/db';
 export async function verifyUserCredentials(
     emailRaw: string,
     password: string
-): Promise<{ id: string; email: string; role: string } | null> {
+): Promise<{ id: string; email: string; role: string; sessionTokenVersion: number } | null> {
     const email = emailRaw.trim();
     if (!email || !password) {
         return null;
     }
 
     const rows = await sql`
-        SELECT id, email, password_hash, role FROM users
+        SELECT id, email, password_hash, role, session_token_version FROM users
         WHERE lower(trim(email)) = lower(${email})
         LIMIT 1
     `;
@@ -21,6 +21,7 @@ export async function verifyUserCredentials(
         email: string | null;
         password_hash: string | null;
         role?: string | null;
+        session_token_version?: number | null;
     } | undefined;
     if (!row?.password_hash) {
         return null;
@@ -31,5 +32,10 @@ export async function verifyUserCredentials(
         return null;
     }
 
-    return { id: row.id, email: row.email ?? email, role: row.role || 'user' };
+    return {
+        id: row.id,
+        email: row.email ?? email,
+        role: row.role || 'user',
+        sessionTokenVersion: Number(row.session_token_version ?? 0),
+    };
 }

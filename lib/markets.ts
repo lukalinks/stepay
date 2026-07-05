@@ -19,7 +19,7 @@ export const MOBILE_OPERATOR_BRANDS: Record<
 > = {
     mtn: { logo: '/assets/operators/mtn.svg', accent: '#FFCB05', ring: 'rgba(255, 203, 5, 0.45)' },
     airtel: { logo: '/assets/operators/airtel.svg', accent: '#E40000', ring: 'rgba(228, 0, 0, 0.4)' },
-    zamtel: { logo: '/assets/operators/zamtel.svg', accent: '#0072BC', ring: 'rgba(0, 114, 188, 0.4)' },
+    zamtel: { logo: '/assets/operators/zamtel.png', accent: '#008736', ring: 'rgba(0, 135, 54, 0.4)' },
 };
 
 export interface IdDocumentType {

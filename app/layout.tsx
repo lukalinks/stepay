@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { MuiProvider } from "@/components/MuiProvider";
+import { ChunkLoadRecovery } from "@/components/ChunkLoadRecovery";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Stepay — Dollar wallet funded by mobile money',
-  description: 'Deposit from MTN, Airtel, or Zamtel. Hold USDC & XLM. Send to anyone by phone number — no bank account required.',
+  title: 'Stepay | Send, save & get paid across Africa',
+  description: 'Dollar wallet for people, freelancers, and businesses. Send across Africa, hold USDC & XLM, accept payments, and cash out to mobile money. No bank account needed.',
 };
 
 export default function RootLayout({
@@ -28,7 +29,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <MuiProvider>{children}</MuiProvider>
+        <MuiProvider>
+          <ChunkLoadRecovery />
+          {children}
+        </MuiProvider>
       </body>
     </html>
   );

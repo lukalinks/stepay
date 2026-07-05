@@ -9,6 +9,8 @@ import Typography from '@mui/material/Typography';
 import { Eye, EyeOff } from 'lucide-react';
 import { authTextFieldSx, BRAND } from '@/lib/brand';
 
+import { MIN_PASSWORD_LENGTH } from '@/lib/password-policy';
+
 type AuthPasswordFieldProps = {
   id: string;
   label: string;
@@ -20,13 +22,14 @@ type AuthPasswordFieldProps = {
   matchValue?: string;
   helperText?: string;
   headerRight?: React.ReactNode;
+  minLength?: number;
 };
 
 function getStrength(pwd: string): { score: number; label: string } {
   if (!pwd) return { score: 0, label: '' };
   let score = 0;
-  if (pwd.length >= 6) score++;
-  if (pwd.length >= 10) score++;
+  if (pwd.length >= MIN_PASSWORD_LENGTH) score++;
+  if (pwd.length >= MIN_PASSWORD_LENGTH + 4) score++;
   if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
   if (/\d/.test(pwd)) score++;
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
@@ -48,6 +51,7 @@ export function AuthPasswordField({
   matchValue = '',
   helperText,
   headerRight,
+  minLength = MIN_PASSWORD_LENGTH,
 }: AuthPasswordFieldProps) {
   const [visible, setVisible] = useState(false);
   const strength = getStrength(value);
@@ -79,7 +83,7 @@ export function AuthPasswordField({
         fullWidth
         sx={authTextFieldSx}
         slotProps={{
-          htmlInput: { minLength: 6, autoComplete, 'aria-label': headerRight ? label : undefined },
+          htmlInput: { minLength, autoComplete, 'aria-label': headerRight ? label : undefined },
           input: {
             endAdornment: (
               <InputAdornment position="end">

@@ -114,10 +114,10 @@ export default function MerchantPage() {
     };
 
     const embedSnippet = (checkoutUrl: string) =>
-        `<script src="${origin}/embed.js"></script>\n<a href="${checkoutUrl}" data-stepay-checkout="${checkoutUrl}" class="stepay-pay-btn">Pay with Stepay</a>`;
+        `<div data-stepay-embed="${checkoutUrl}"></div>\n<script src="${origin}/embed.js" defer></script>`;
 
-    const iframeSnippet = (embedUrl: string) =>
-        `<script src="${origin}/embed.js"></script>\n<div data-stepay-embed="${embedUrl}"></div>`;
+    const buttonSnippet = (checkoutUrl: string) =>
+        `<a href="${checkoutUrl}" data-stepay-checkout="${checkoutUrl}" class="stepay-pay-btn">Pay with Stepay</a>\n<script src="${origin}/embed.js" defer></script>`;
 
     return (
         <DashboardPanel wide>
@@ -132,7 +132,7 @@ export default function MerchantPage() {
                                 <h2 className="font-bold text-white">Quick checkout</h2>
                             </div>
                             <p className={`${dash.hint} text-sm`}>
-                                Create a one-time payment link for a fixed amount — school fees, invoices, or shop sales.
+                                Create a one-time payment link for a fixed amount. Payers can pay with mobile money (no account needed — you receive USDC) or from their Stepay wallet.
                             </p>
                             <form onSubmit={createCheckout} className="grid gap-4 sm:grid-cols-2">
                                 <div className="space-y-2 sm:col-span-2">
@@ -201,11 +201,11 @@ export default function MerchantPage() {
                                                     Embed code
                                                 </summary>
                                                 <pre className="mt-2 overflow-x-auto rounded-lg bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">
-                                                    {embedSnippet(c.checkoutUrl)}
+                                                    {buttonSnippet(c.checkoutUrl)}
                                                 </pre>
-                                                <p className={`${dash.hint} mt-2 mb-1`}>Or inline iframe:</p>
+                                                <p className={`${dash.hint} mt-2 mb-1`}>Or inline checkout (iframe):</p>
                                                 <pre className="overflow-x-auto rounded-lg bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">
-                                                    {iframeSnippet(c.embedUrl)}
+                                                    {embedSnippet(c.embedUrl)}
                                                 </pre>
                                             </details>
                                         </div>
@@ -258,6 +258,12 @@ export default function MerchantPage() {
                                 <Code2 className="h-5 w-5 text-[var(--brand-accent)]" />
                                 <h2 className="font-bold text-white">Partner API</h2>
                             </div>
+                            <p className={dash.hint}>
+                                Full reference with examples:{' '}
+                                <a href="/developers" className="text-[var(--brand-accent)] hover:underline">
+                                    stepay.pro/developers
+                                </a>
+                            </p>
                             <pre className="overflow-x-auto rounded-lg bg-black/30 p-4 text-xs text-white/70 whitespace-pre-wrap">
 {`POST ${origin}/api/v1/checkouts
 Authorization: Bearer sk_live_...
@@ -273,7 +279,7 @@ Content-Type: application/json
   "webhook_url": "https://yourschool.zm/hooks/stepay"
 }
 
-→ Returns checkout_url for Pay with Stepay button or iframe embed.`}
+→ Returns checkout_url. Payers can pay via mobile money (guest, you receive USDC) or Stepay wallet.`}
                             </pre>
                             <p className={dash.hint}>
                                 Webhooks send <code className="text-white/50">checkout.paid</code> with a{' '}

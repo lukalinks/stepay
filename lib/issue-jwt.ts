@@ -1,4 +1,5 @@
 import { encode } from '@auth/core/jwt';
+import { getSessionTokenVersion } from '@/lib/session-token';
 
 /** True only on HTTPS in production — never force secure cookies on local http://localhost. */
 export function authUseSecureCookies(): boolean {
@@ -43,14 +44,20 @@ export function authJwtSalt(): string {
 }
 
 /** Mint an Auth.js-compatible session JWT (same salt/encryption as cookie sessions). */
-export async function issueAuthJwt(user: { id: string; email: string; role?: string }): Promise<string> {
+export async function issueAuthJwt(user: {
+    id: string;
+    email: string;
+    role?: string;
+    sessionTokenVersion?: number;
+}): Promise<string> {
     const secret = process.env.AUTH_SECRET;
     if (!secret) {
         throw new Error('AUTH_SECRET is not set');
     }
+    const tv = user.sessionTokenVersion ?? (await getSessionTokenVersion(user.id));
     const salt = authJwtSalt();
     return encode({
-        token: { sub: user.id, email: user.email, role: user.role || 'user' },
+        token: { sub: user.id, email: user.email, role: user.role || 'user', tv },
         secret,
         salt,
         maxAge: 60 * 60 * 24 * 7,

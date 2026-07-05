@@ -3,6 +3,8 @@
  * Server only stores wallet_public.
  */
 
+import { Keypair } from '@stellar/stellar-sdk';
+
 const STORAGE_KEY = 'stepay_wallet_v1';
 /** Wallet stays unlocked on this device for 24 hours (refreshed on activity). */
 export const UNLOCK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -142,8 +144,7 @@ export function getLocalWalletPublicKey(): string | null {
 /** Create a new Stellar keypair and persist encrypted locally. Secret is not returned — reveal later from Profile. */
 export async function createLocalWallet(password: string): Promise<{ publicKey: string }> {
     requireBrowser();
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const pair = StellarSdk.Keypair.random();
+    const pair = Keypair.random();
     const publicKey = pair.publicKey();
     const secretKey = pair.secret();
     const enc = await encryptSecret(secretKey, password);
@@ -162,8 +163,7 @@ export async function revealLocalWalletSecret(password: string): Promise<{ publi
         throw new Error('No wallet on this device. Import your secret key to continue.');
     }
     const secretKey = await decryptSecret(vault, password);
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const publicKey = StellarSdk.Keypair.fromSecret(secretKey).publicKey();
+    const publicKey = Keypair.fromSecret(secretKey).publicKey();
     if (publicKey !== vault.publicKey) {
         throw new Error('Wallet data is corrupted. Import your secret key again.');
     }
@@ -229,8 +229,7 @@ export function touchWalletSession(): void {
 /** Import an existing secret (e.g. from Lobstr) into the local vault. */
 export async function importLocalWallet(secretKey: string, password: string): Promise<{ publicKey: string }> {
     requireBrowser();
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const pair = StellarSdk.Keypair.fromSecret(secretKey.trim());
+    const pair = Keypair.fromSecret(secretKey.trim());
     const publicKey = pair.publicKey();
     const enc = await encryptSecret(pair.secret(), password);
     writeVault({ publicKey, ...enc });
@@ -247,8 +246,7 @@ export async function unlockLocalWallet(password: string): Promise<{ publicKey: 
         throw new Error('No wallet on this device. Sign up again or import your secret key.');
     }
     const secretKey = await decryptSecret(vault, password);
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const publicKey = StellarSdk.Keypair.fromSecret(secretKey).publicKey();
+    const publicKey = Keypair.fromSecret(secretKey).publicKey();
     if (publicKey !== vault.publicKey) {
         throw new Error('Wallet data is corrupted. Import your secret key again.');
     }
@@ -261,6 +259,35 @@ export async function unlockLocalWallet(password: string): Promise<{ publicKey: 
 export function removeLocalWallet(): void {
     localStorage.removeItem(STORAGE_KEY);
     clearWalletSession();
+}
+
+export type WalletVaultSnapshot = StoredVault;
+
+/** Export encrypted vault for cloud backup (password-encrypted blob — server cannot read secret). */
+export function exportVaultForBackup(): WalletVaultSnapshot | null {
+    return readVault();
+}
+
+/** Restore vault from cloud backup ciphertext and unlock with account password. */
+export async function restoreVaultFromBackup(
+    vault: WalletVaultSnapshot,
+    password: string
+): Promise<{ publicKey: string }> {
+    requireBrowser();
+    writeVault(vault);
+    return unlockLocalWallet(password);
+}
+
+/** Clear all browser-stored data for the current account (call on logout or before signup). */
+export function clearAccountLocalState(): void {
+    removeLocalWallet();
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(BACKUP_REMINDER_KEY);
+    localStorage.removeItem(SECRET_REVEALED_KEY);
+    localStorage.removeItem(ONBOARDING_SEEN_KEY);
+    sessionStorage.removeItem(UNLOCK_HINT_KEY);
+    sessionStorage.removeItem('stepay_active_user_id');
+    sessionStorage.removeItem('stepay_expected_user_id');
 }
 
 export function isValidStellarPublicKey(key: string): boolean {

@@ -109,6 +109,10 @@ export const PAGE_META: Record<string, { title: string; subtitle: string }> = {
         title: 'Profile',
         subtitle: 'Your account details and verification info.',
     },
+    '/dashboard/settings': {
+        title: 'Settings',
+        subtitle: 'Wallet backup, secret key export, and security.',
+    },
     '/dashboard/rates': {
         title: 'Rates',
         subtitle: 'Current buy and sell exchange rates.',

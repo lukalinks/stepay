@@ -187,7 +187,7 @@ export class LencoService {
    * Fetch mobile money collection status by reference (v2).
    * Use this for deposits - status is 'pending' | 'successful' | 'failed' | 'pay-offline' etc.
    */
-  static async getCollectionByReference(reference: string): Promise<{ status: string } | null> {
+  static async getCollectionByReference(reference: string): Promise<{ status: string; amount?: number } | null> {
     if (!LENCO_SECRET_KEY) return null;
     try {
       const url = `${LENCO_API_URL}/collections/status/${encodeURIComponent(reference)}`;
@@ -198,7 +198,12 @@ export class LencoService {
       const result = await response.json().catch(() => ({}));
       const data = result?.data;
       if (!data) return null;
-      return { status: (data.status || '').toLowerCase() };
+      const amountRaw = data.amount ?? data.collectedAmount ?? data.requestedAmount;
+      const amount = amountRaw != null ? Number(amountRaw) : undefined;
+      return {
+        status: (data.status || '').toLowerCase(),
+        ...(amount != null && !Number.isNaN(amount) ? { amount } : {}),
+      };
     } catch (error: any) {
       console.error('Lenco getCollectionByReference:', error?.message);
       return null;

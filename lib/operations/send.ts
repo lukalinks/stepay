@@ -14,6 +14,7 @@ import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { verifyOutgoingPayment } from '@/lib/stellar-tx-verify';
 import type { ClientPaymentPlan } from '@/lib/client-stellar';
 import { normalizeZambianPhone } from '@/lib/phone';
+import { coerceIntentPayload } from '@/lib/intent-payload';
 import { notifyPhoneTransfer } from '@/lib/notifications';
 
 export type SendMode = 'phone' | 'address';
@@ -359,12 +360,13 @@ export async function finalizeSendClientTx(
 }
 
 export function parseSendPayload(body: Record<string, unknown>): SendPayload {
-    const mode: SendMode = body.mode === 'address' ? 'address' : 'phone';
-    const to = typeof body.to === 'string' ? body.to : '';
-    const phone = typeof body.phone === 'string' ? body.phone : typeof body.to === 'string' && mode === 'phone' ? body.to : '';
-    const amount = Number(body.amount);
-    const asset = body.asset === 'xlm' ? 'xlm' : 'usdc';
-    const memo = typeof body.memo === 'string' && body.memo.trim() ? body.memo.trim() : undefined;
+    const bodyRaw = coerceIntentPayload(body);
+    const mode: SendMode = bodyRaw.mode === 'address' ? 'address' : 'phone';
+    const to = typeof bodyRaw.to === 'string' ? bodyRaw.to : '';
+    const phone = typeof bodyRaw.phone === 'string' ? bodyRaw.phone : typeof bodyRaw.to === 'string' && mode === 'phone' ? bodyRaw.to : '';
+    const amount = Number(bodyRaw.amount);
+    const asset = bodyRaw.asset === 'xlm' ? 'xlm' : 'usdc';
+    const memo = typeof bodyRaw.memo === 'string' && bodyRaw.memo.trim() ? bodyRaw.memo.trim() : undefined;
     if (memo && Buffer.byteLength(memo, 'utf8') > 28) {
         throw new Error('Memo must be 28 bytes or fewer.');
     }
@@ -377,9 +379,9 @@ export function parseSendPayload(body: Record<string, unknown>): SendPayload {
     if (mode === 'address' && !to) {
         throw new Error('Enter a Stellar address.');
     }
-    const checkoutToken = typeof body.checkoutToken === 'string' ? body.checkoutToken.trim() : undefined;
-    const requestToken = typeof body.requestToken === 'string' ? body.requestToken.trim() : undefined;
-    const paySlug = typeof body.paySlug === 'string' ? body.paySlug.trim() : undefined;
+    const checkoutToken = typeof bodyRaw.checkoutToken === 'string' ? bodyRaw.checkoutToken.trim() : undefined;
+    const requestToken = typeof bodyRaw.requestToken === 'string' ? bodyRaw.requestToken.trim() : undefined;
+    const paySlug = typeof bodyRaw.paySlug === 'string' ? bodyRaw.paySlug.trim() : undefined;
     return {
         mode,
         to: mode === 'address' ? to : undefined,

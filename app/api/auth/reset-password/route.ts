@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import { sql } from '@/lib/db';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
+import { validatePassword } from '@/lib/password-policy';
+import { incrementSessionTokenVersion } from '@/lib/session-token';
 
 export async function POST(request: Request) {
     try {
@@ -14,9 +16,10 @@ export async function POST(request: Request) {
         const token = typeof body.token === 'string' ? body.token.trim() : '';
         const password = typeof body.password === 'string' ? body.password : '';
 
-        if (!token || password.length < 6) {
+        const passwordErr = validatePassword(password);
+        if (!token || passwordErr) {
             return NextResponse.json(
-                { error: 'Invalid token or password must be at least 6 characters' },
+                { error: passwordErr || 'Invalid reset link.' },
                 { status: 400 }
             );
         }
@@ -35,6 +38,7 @@ export async function POST(request: Request) {
         const passwordHash = await bcrypt.hash(password, 10);
         await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${row.user_id}`;
         await sql`DELETE FROM password_reset_tokens WHERE user_id = ${row.user_id}`;
+        await incrementSessionTokenVersion(row.user_id);
 
         return NextResponse.json({ success: true });
     } catch (err) {

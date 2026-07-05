@@ -8,6 +8,7 @@ import { sendPushNotification } from '@/lib/push';
 import { auditSign, assertDailySignLimit, clientIp, getUserWalletSecret } from '@/lib/signer';
 import { phonesMatch } from '@/lib/phone';
 import { parsePositiveDecimalOrThrow } from '@/lib/parse-amount';
+import { coerceIntentPayload } from '@/lib/intent-payload';
 import { randomInt } from 'crypto';
 import { verifyOutgoingPayment } from '@/lib/stellar-tx-verify';
 import type { ClientPaymentPlan } from '@/lib/client-stellar';
@@ -249,11 +250,12 @@ export async function finalizeSellClientTx(
 }
 
 export function parseSellPayload(body: Record<string, unknown>): SellPayload {
-    const amount = parsePositiveDecimalOrThrow(body.amount, 'Enter a valid amount to cash out.');
-    const asset = body.asset === 'usdc' ? 'usdc' : 'xlm';
-    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-    const operator = ['mtn', 'airtel', 'zamtel'].includes(String(body.operator))
-        ? (String(body.operator) as 'mtn' | 'airtel' | 'zamtel')
+    const raw = coerceIntentPayload(body);
+    const amount = parsePositiveDecimalOrThrow(raw.amount, 'Enter a valid amount to cash out.');
+    const asset = raw.asset === 'usdc' ? 'usdc' : 'xlm';
+    const phone = typeof raw.phone === 'string' ? raw.phone.trim() : '';
+    const operator = ['mtn', 'airtel', 'zamtel'].includes(String(raw.operator))
+        ? (String(raw.operator) as 'mtn' | 'airtel' | 'zamtel')
         : 'mtn';
     return { amount, asset, phone, operator };
 }

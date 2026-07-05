@@ -104,6 +104,14 @@ export function zmwToCrypto(zmw: number, asset: 'xlm' | 'usdc', rates: PlatformR
   return (zmw / rate) * feeMult;
 }
 
+/** ZMW required to buy `crypto` units (inverse of zmwToCrypto). */
+export function cryptoToZmwForBuy(crypto: number, asset: 'xlm' | 'usdc', rates: PlatformRates, fees: PlatformFees): number {
+  const rate = asset === 'usdc' ? rates.usdc_buy : rates.xlm_buy;
+  const feeMult = 1 - fees.buy_percent / 100;
+  if (feeMult <= 0 || rate <= 0) return 0;
+  return (crypto * rate) / feeMult;
+}
+
 /** For sell: crypto → ZMW. Accounts for sell fee if any. */
 export function cryptoToZmw(crypto: number, asset: 'xlm' | 'usdc', rates: PlatformRates, fees: PlatformFees): number {
   const rate = asset === 'usdc' ? rates.usdc_sell : rates.xlm_sell;

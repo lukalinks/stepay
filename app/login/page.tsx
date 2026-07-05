@@ -13,7 +13,8 @@ import { AuthFormError, AuthSuccessBanner } from '@/components/auth/AuthAlert';
 import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { accentLinkSx, authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
-import { hasLocalWallet, setWalletUnlockHint, unlockLocalWallet } from '@/lib/client-wallet';
+import { hasLocalWallet, removeLocalWallet, setWalletUnlockHint, unlockLocalWallet } from '@/lib/client-wallet';
+import { syncClientAccountSession } from '@/lib/client-account-sync';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function toFriendlyAuthError(msg?: string, action: string = 'sign in'): string {
@@ -58,24 +59,30 @@ function UserLoginForm({
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email, password }),
             });
 
             const data = await res.json().catch(() => ({}));
 
             if (res.ok) {
+                if (typeof data.userId === 'string') {
+                    syncClientAccountSession(data.userId);
+                }
                 if (hasLocalWallet()) {
                     try {
                         await unlockLocalWallet(password);
                     } catch {
+                        // Wrong password for the vault on this device (often a prior account) — drop vault only.
+                        removeLocalWallet();
                         setWalletUnlockHint(
-                            'Sign-in succeeded, but this device could not unlock your wallet. Enter your account password below, or import your secret key from Profile → Wallet.'
+                            'Sign-in succeeded. Enter your account password below to unlock your wallet. If you created this account on another device, import your secret key from Settings.'
                         );
                     }
                 }
                 const target = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
-                router.refresh();
-                router.push(target);
+                window.location.href = target;
+                return;
             } else {
                 setError(toFriendlyAuthError(data.error, 'sign in'));
             }
@@ -97,7 +104,7 @@ function UserLoginForm({
         <AuthShell
             mode="login"
             title="Welcome back"
-            subtitle="Sign in to your dollar wallet — pay by phone, deposit from mobile money, and cash out anytime."
+            subtitle="Sign in to your dollar wallet. Pay by phone, deposit from mobile money, and cash out anytime."
             footer={
                 <>
                     Don&apos;t have an account?{' '}

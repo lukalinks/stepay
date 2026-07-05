@@ -1,5 +1,8 @@
 import { randomBytes } from 'crypto';
 import { sql } from '@/lib/db';
+import { getMarket, marketSupportsPayment } from '@/lib/markets';
+import { quoteCheckoutMobileMoney } from '@/lib/checkout-mobile-money';
+import { assertSafeRedirectUrl, assertSafeWebhookUrl, sanitizeRedirectUrlForClient } from '@/lib/url-security';
 
 export type CheckoutStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 
@@ -44,6 +47,9 @@ export async function createMerchantCheckout(input: CreateCheckoutInput) {
     const checkoutToken = randomBytes(16).toString('hex');
     const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000).toISOString();
     const metadata = JSON.stringify(input.metadata ?? {});
+    const successUrl = assertSafeRedirectUrl(input.successUrl);
+    const cancelUrl = assertSafeRedirectUrl(input.cancelUrl);
+    const webhookUrl = assertSafeWebhookUrl(input.webhookUrl);
 
     const rows = await sql`
         INSERT INTO merchant_checkouts (
@@ -60,9 +66,9 @@ export async function createMerchantCheckout(input: CreateCheckoutInput) {
             ${input.description?.trim() || null},
             ${input.referenceId?.trim() || null},
             ${metadata}::jsonb,
-            ${input.successUrl?.trim() || null},
-            ${input.cancelUrl?.trim() || null},
-            ${input.webhookUrl?.trim() || null},
+            ${successUrl},
+            ${cancelUrl},
+            ${webhookUrl},
             ${expiresAt}
         )
         RETURNING id, checkout_token, amount, asset, label, status, expires_at, created_at
@@ -86,7 +92,7 @@ export async function createMerchantCheckout(input: CreateCheckoutInput) {
 
 export async function getCheckoutByToken(token: string) {
     const rows = await sql`
-        SELECT c.*, u.full_name AS merchant_name, u.wallet_public AS merchant_wallet
+        SELECT c.*, u.full_name AS merchant_name, u.wallet_public AS merchant_wallet, u.country_code AS merchant_country
         FROM merchant_checkouts c
         JOIN users u ON u.id = c.merchant_user_id
         WHERE c.checkout_token = ${token}
@@ -173,7 +179,7 @@ export async function assertCheckoutPayable(
 
 export async function markCheckoutPaid(
     checkoutId: string,
-    payerId: string,
+    payerId: string | null,
     txHash: string
 ): Promise<Record<string, unknown> | null> {
     const rows = await sql`
@@ -188,18 +194,41 @@ export async function markCheckoutPaid(
 export function serializeCheckoutPublic(checkout: Record<string, unknown>) {
     const token = String(checkout.checkout_token);
     const urls = checkoutUrls(token);
+    const asset = checkout.asset === 'xlm' ? 'xlm' : 'usdc';
+    const amount = Number(checkout.amount);
+    const countryCode = String(checkout.merchant_country ?? 'ZM');
+    const market = getMarket(countryCode);
+
     return {
         label: checkout.label,
         description: checkout.description,
-        amount: Number(checkout.amount),
-        asset: checkout.asset,
+        amount,
+        asset,
         merchantName: checkout.merchant_name,
         status: checkout.status,
         referenceId: checkout.reference_id,
-        cancelUrl: checkout.cancel_url,
+        cancelUrl: sanitizeRedirectUrlForClient(checkout.cancel_url ? String(checkout.cancel_url) : null),
+        successUrl: sanitizeRedirectUrlForClient(checkout.success_url ? String(checkout.success_url) : null),
         expiresAt: checkout.expires_at,
         paidAt: checkout.paid_at,
+        countryCode: market.countryCode,
+        currency: market.currency,
+        phoneDialCode: market.phoneDialCode,
+        mobileOperators: market.mobileOperators,
+        mobileMoneyEnabled: asset === 'usdc' && marketSupportsPayment(market.countryCode, 'mobile_money'),
         ...urls,
+    };
+}
+
+export async function serializeCheckoutPublicWithQuote(checkout: Record<string, unknown>) {
+    const base = serializeCheckoutPublic(checkout);
+    if (!base.mobileMoneyEnabled || base.status !== 'pending') {
+        return { ...base, mobileMoneyZmw: null as number | null };
+    }
+    const quote = await quoteCheckoutMobileMoney(base.amount, base.countryCode);
+    return {
+        ...base,
+        mobileMoneyZmw: quote?.zmwAmount ?? null,
     };
 }
 

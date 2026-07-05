@@ -1,10 +1,6 @@
 import { randomBytes } from 'crypto';
 import { sql } from '@/lib/db';
 
-function slugFromUserId(userId: string): string {
-    return userId.replace(/-/g, '').slice(0, 10);
-}
-
 export async function getOrCreatePayLink(userId: string): Promise<{
     slug: string;
     label: string | null;
@@ -21,7 +17,7 @@ export async function getOrCreatePayLink(userId: string): Promise<{
     let row = existing[0] as { slug: string; label?: string | null; amount?: number | null; asset: string } | undefined;
 
     if (!row) {
-        const slug = `${slugFromUserId(userId)}${randomBytes(3).toString('hex')}`;
+        const slug = randomBytes(16).toString('hex');
         await sql`
             INSERT INTO pay_links (user_id, slug, label, asset)
             VALUES (${userId}, ${slug}, ${'Pay me on Stepay'}, 'usdc')

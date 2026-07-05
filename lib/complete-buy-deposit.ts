@@ -20,12 +20,29 @@ export type BuyDepositCompletionStatus =
     | 'failed'
     | 'waiting_trustline';
 
-export async function isLencoDepositPaid(reference: string): Promise<boolean> {
+export async function isLencoDepositPaid(reference: string, expectedAmountZmw?: number): Promise<boolean> {
     const collection = await LencoService.getCollectionByReference(reference);
-    if (collection?.status === 'successful') return true;
+    if (collection?.status === 'successful') {
+        if (expectedAmountZmw != null && collection.amount != null) {
+            if (Math.abs(collection.amount - expectedAmountZmw) > 0.02) {
+                console.warn(
+                    `Lenco deposit amount mismatch for ${reference}: expected ${expectedAmountZmw}, got ${collection.amount}`
+                );
+                return false;
+            }
+        }
+        return true;
+    }
 
     const lencoTx = await LencoService.getTransactionByReference(reference);
-    return !!(lencoTx && lencoTx.status === 'successful' && lencoTx.type === 'credit');
+    if (!(lencoTx && lencoTx.status === 'successful' && lencoTx.type === 'credit')) {
+        return false;
+    }
+
+    if (expectedAmountZmw != null) {
+        console.warn(`Lenco deposit ${reference}: amount not verified via collection API`);
+    }
+    return true;
 }
 
 async function loadUserForDeposit(userId: string) {
@@ -213,7 +230,7 @@ export async function tryCompleteBuyDeposit(
             if (failed) return failed;
         }
 
-        const paid = await isLencoDepositPaid(reference);
+        const paid = await isLencoDepositPaid(reference, Number(existing.amount_fiat));
         if (!paid) return { status: 'pending', asset };
     }
 

@@ -56,7 +56,8 @@ export async function createSignupVerification(
 export async function verifySignupAndCreateUser(
     signupId: string,
     confirmCode: string,
-    walletPublic: string
+    walletPublic: string,
+    options?: { walletBackupEnc?: string | null; cloudBackupEnabled?: boolean }
 ): Promise<{ userId: string; email: string }> {
     const publicKey = walletPublic.trim();
     if (!isValidStellarPublicKey(publicKey)) {
@@ -120,6 +121,9 @@ export async function verifySignupAndCreateUser(
             throw new Error('This wallet is already linked to another account.');
         }
 
+        const cloudBackupEnabled = options?.cloudBackupEnabled !== false;
+        const backupEnc = cloudBackupEnabled && options?.walletBackupEnc?.trim() ? options.walletBackupEnc.trim() : null;
+
         const inserted = await tx`
             INSERT INTO users (
                 email,
@@ -129,6 +133,8 @@ export async function verifySignupAndCreateUser(
                 wallet_public,
                 wallet_secret,
                 wallet_secret_enc,
+                wallet_backup_enc,
+                wallet_backup_enabled,
                 country_code
             ) VALUES (
                 ${trimmedEmail},
@@ -138,6 +144,8 @@ export async function verifySignupAndCreateUser(
                 ${publicKey},
                 null,
                 null,
+                ${backupEnc},
+                ${cloudBackupEnabled},
                 ${row.country_code}
             )
             RETURNING id, email

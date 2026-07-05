@@ -23,6 +23,8 @@ interface WalletOverviewProps {
         zmwTotal?: string;
     };
     todayChange?: { percent: number; amount: number } | null;
+    /** Tighter layout for landing phone mock */
+    compact?: boolean;
 }
 
 function truncateAddress(addr: string) {
@@ -37,7 +39,7 @@ function formatNum(n: number, decimals = 2) {
     });
 }
 
-export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, balance, todayChange }: WalletOverviewProps) {
+export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, balance, todayChange, compact = false }: WalletOverviewProps) {
     const [copied, setCopied] = useState(false);
     const [addrOpen, setAddrOpen] = useState(false);
     const [showXlm, setShowXlm] = useState(Number(balance.xlm) > 0.01);
@@ -59,14 +61,16 @@ export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, bala
     };
 
     return (
-        <div className={dash.panelPadding}>
+        <div className={compact ? 'p-2.5' : dash.panelPadding}>
             {walletAddr && (
-                <div className="mb-4 flex justify-start sm:justify-end">
+                <div className={`${compact ? 'mb-2' : 'mb-4'} flex justify-start sm:justify-end`}>
                     <div className="relative w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={() => setAddrOpen(!addrOpen)}
-                            className="inline-flex min-h-[40px] w-full items-center justify-between gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 font-mono text-xs text-white/55 transition-all hover:border-[var(--brand-accent-border)] hover:bg-white/[0.06] sm:w-auto sm:justify-center"
+                            className={`inline-flex w-full items-center justify-between gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] font-mono text-white/55 transition-all hover:border-[var(--brand-accent-border)] hover:bg-white/[0.06] sm:w-auto sm:justify-center ${
+                                compact ? 'min-h-[30px] px-2.5 py-1 text-[0.625rem]' : 'min-h-[40px] px-3.5 py-2 text-xs'
+                            }`}
                         >
                             <span className="truncate">{truncateAddress(walletAddr)}</span>
                             <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-white/40 transition-transform ${addrOpen ? 'rotate-180' : ''}`} />
@@ -89,22 +93,24 @@ export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, bala
                 </div>
             )}
 
-            <div className={dash.balanceHero}>
-                <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-[var(--brand-accent)]" />
-                    <p className={dash.statLabel}>Dollar wallet</p>
+            <div className={compact ? `${dash.balanceHero} !p-3` : dash.balanceHero}>
+                <div className="flex items-center gap-1.5">
+                    <DollarSign className={compact ? 'h-3 w-3 text-[var(--brand-accent)]' : 'h-4 w-4 text-[var(--brand-accent)]'} />
+                    <p className={compact ? 'text-[0.5625rem] font-medium uppercase tracking-[0.12em] text-white/40' : dash.statLabel}>Dollar wallet</p>
                 </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                    <p className={dash.statValue}>{formatNum(Number(usdDisplay))}</p>
-                    <span className="text-sm font-medium text-white/35">USDC</span>
+                <div className={`flex items-baseline gap-1.5 ${compact ? 'mt-1' : 'mt-2'}`}>
+                    <p className={compact ? 'text-xl font-bold text-white tabular-nums tracking-tight' : dash.statValue}>{formatNum(Number(usdDisplay))}</p>
+                    <span className={compact ? 'text-[0.6875rem] font-medium text-white/35' : 'text-sm font-medium text-white/35'}>USDC</span>
                 </div>
-                <p className="mt-1 text-sm text-white/45">
+                <p className={compact ? 'mt-0.5 text-[0.6875rem] text-white/45' : 'mt-1 text-sm text-white/45'}>
                     ≈ {formatNum(Number(localDisplay))} {localCurrency} total
                 </p>
                 {todayChange && todayChange.amount !== 0 ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className={`flex flex-wrap items-center gap-1.5 ${compact ? 'mt-1' : 'mt-2'}`}>
                         <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            className={`inline-flex items-center rounded-full font-semibold ${
+                                compact ? 'px-1.5 py-0.5 text-[0.625rem]' : 'px-2 py-0.5 text-xs'
+                            } ${
                                 todayChange.amount >= 0
                                     ? 'bg-[var(--brand-accent-muted)] text-[var(--brand-accent)]'
                                     : 'bg-red-500/10 text-red-400'
@@ -114,34 +120,34 @@ export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, bala
                         </span>
                     </div>
                 ) : null}
-                <WalletBalanceChart />
+                {!compact && <WalletBalanceChart />}
             </div>
 
-            <p className={`mt-5 mb-2.5 ${dash.sectionLabel}`}>Holdings</p>
-            <div className="grid grid-cols-1 gap-2">
-                <div className={`${dash.holdingRow} ring-1 ring-[var(--brand-accent-border)]`}>
-                    <div className="flex items-center gap-2.5">
+            <p className={`${compact ? 'mt-3 mb-1.5' : 'mt-5 mb-2.5'} ${dash.sectionLabel}`}>Holdings</p>
+            <div className={`grid grid-cols-1 ${compact ? 'gap-1.5' : 'gap-2'}`}>
+                <div className={`${dash.holdingRow} ring-1 ring-[var(--brand-accent-border)] ${compact ? '!px-2.5 !py-2' : ''}`}>
+                    <div className={`flex items-center ${compact ? 'gap-2' : 'gap-2.5'}`}>
                         <AssetIcon asset="usdc" size="sm" />
                         <div>
-                            <span className="text-sm font-semibold text-white">{assetDisplayLabel('usdc')}</span>
-                            <p className="text-[0.625rem] text-[var(--brand-accent)]/80">Primary</p>
+                            <span className={compact ? 'text-xs font-semibold text-white' : 'text-sm font-semibold text-white'}>{assetDisplayLabel('usdc')}</span>
+                            <p className="text-[0.5625rem] text-[var(--brand-accent)]/80">Primary</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm font-semibold tabular-nums text-white">{formatNum(usdcVal)}</p>
-                        <p className="text-[0.625rem] text-white/40">{formatNum(Number(usdcLocal), 0)} {localCurrency}</p>
+                        <p className={compact ? 'text-xs font-semibold tabular-nums text-white' : 'text-sm font-semibold tabular-nums text-white'}>{formatNum(usdcVal)}</p>
+                        <p className="text-[0.5625rem] text-white/40">{formatNum(Number(usdcLocal), 0)} {localCurrency}</p>
                     </div>
                 </div>
 
                 {(showXlm || xlmVal > 0.01) && (
-                    <div className={dash.holdingRow}>
-                        <div className="flex items-center gap-2.5">
+                    <div className={`${dash.holdingRow} ${compact ? '!px-2.5 !py-2' : ''}`}>
+                        <div className={`flex items-center ${compact ? 'gap-2' : 'gap-2.5'}`}>
                             <AssetIcon asset="xlm" size="sm" />
-                            <span className="text-sm font-semibold text-white">{assetDisplayLabel('xlm')}</span>
+                            <span className={compact ? 'text-xs font-semibold text-white' : 'text-sm font-semibold text-white'}>{assetDisplayLabel('xlm')}</span>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm font-semibold tabular-nums text-white">{formatNum(xlmVal, 4)}</p>
-                            <p className="text-[0.625rem] text-white/40">{formatNum(Number(xlmLocal), 0)} {localCurrency}</p>
+                            <p className={compact ? 'text-xs font-semibold tabular-nums text-white' : 'text-sm font-semibold tabular-nums text-white'}>{formatNum(xlmVal, 4)}</p>
+                            <p className="text-[0.5625rem] text-white/40">{formatNum(Number(xlmLocal), 0)} {localCurrency}</p>
                         </div>
                     </div>
                 )}

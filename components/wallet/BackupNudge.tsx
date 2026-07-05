@@ -17,8 +17,8 @@ export function BackupNudge() {
     return (
         <p className={`${dash.formWarning} text-xs`}>
             Consider backing up your secret key in{' '}
-            <Link href="/dashboard/profile#wallet-security" className="font-semibold underline">
-                Profile → Wallet
+            <Link href="/dashboard/settings#wallet-security" className="font-semibold underline">
+                Settings
             </Link>{' '}
             before moving money.
         </p>

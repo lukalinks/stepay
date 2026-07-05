@@ -10,6 +10,8 @@ import { formatLocalCurrencyCode, marketSupportsPayment } from '@/lib/markets';
 import { getUserMarket } from '@/lib/user-market';
 import { saveDepositPhoneDetails } from '@/lib/user-phone';
 import { StellarService } from '@/lib/stellar';
+import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/signer';
 
 const schema = z.object({
     amount: z.coerce.number().min(1),
@@ -47,6 +49,10 @@ export async function POST(request: Request) {
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const ip = clientIp(request) || 'unknown';
+        await assertRateLimit(rateLimitKey('buy-ip', [ip]), 20, 15 * 60 * 1000);
+        await assertRateLimit(rateLimitKey('buy-user', [userId]), 10, 15 * 60 * 1000);
 
         const market = await getUserMarket(userId);
         if (!marketSupportsPayment(market.countryCode, 'mobile_money')) {
@@ -148,6 +154,10 @@ export async function POST(request: Request) {
             message: `Payment request sent! Check your phone to approve. ${asset.toUpperCase()} will be sent once payment is confirmed.`,
         });
     } catch (error: unknown) {
+        if (error instanceof RateLimitError) {
+            const r = rateLimitResponse(error);
+            return NextResponse.json({ success: false, error: r.error }, { status: r.status, headers: { 'Retry-After': String(r.retryAfterSec) } });
+        }
         console.error('Buy API Error:', error);
         let message = 'Failed to process buy request';
         if (error && typeof error === 'object' && (error as { name?: string }).name === 'ZodError') {

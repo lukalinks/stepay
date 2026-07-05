@@ -40,7 +40,7 @@ export function DashboardWelcomeToast({ displayName }: { displayName: string }) 
                     '& .MuiAlert-icon': { color: 'var(--brand-accent)' },
                 }}
             >
-                You&apos;re in, {displayName}! Your wallet is ready — back up your secret key anytime in Profile.
+                You&apos;re in, {displayName}! Your wallet is ready — back up your secret key anytime in Settings.
             </Alert>
         </Snackbar>
     );

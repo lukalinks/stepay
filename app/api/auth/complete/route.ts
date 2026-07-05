@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { decode } from 'next-auth/jwt';
-import { authSessionCookieName } from '@/lib/issue-jwt';
+import { authJwtSalt, authSessionCookieName, buildSessionCookieOptions, issueAuthJwt } from '@/lib/issue-jwt';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
+import { isSessionTokenVersionValid } from '@/lib/session-token';
 import { clientIp } from '@/lib/signer';
 
 /** Finishes sign-in when the client holds an Auth.js session JWT (e.g. from mobile) and needs a browser cookie. */
@@ -23,21 +24,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Auth not configured. Add AUTH_SECRET to environment variables.' }, { status: 500 });
         }
 
-        const salt = authSessionCookieName();
+        const salt = authJwtSalt();
         const payload = await decode({ token: accessToken, secret, salt });
         if (!payload?.sub) {
             return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
         }
 
+        const valid = await isSessionTokenVersionValid(String(payload.sub), payload.tv);
+        if (!valid) {
+            return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
+        }
+
         const cookieStore = await cookies();
-        const secure = process.env.AUTH_URL?.startsWith('https') === true;
-        cookieStore.set(salt, accessToken, {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7,
-            sameSite: 'lax',
-            secure,
-        });
+        cookieStore.set(authSessionCookieName(), accessToken, buildSessionCookieOptions());
 
         return NextResponse.json({ success: true });
     } catch (err) {

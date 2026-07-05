@@ -37,13 +37,13 @@ export function WalletBackupBanner({
                 <div className="min-w-0">
                     <p className="text-sm font-semibold text-white">Back up your secret key</p>
                     <p className="mt-0.5 text-xs text-white/50">
-                        When you&apos;re ready, open Profile → Wallet to view and save your secret key offline.
+                        When you&apos;re ready, open Settings to view and save your secret key offline.
                     </p>
                 </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-                <Link href="/dashboard/profile#wallet-security" className={`${dash.ctaSecondary} !py-2 !px-3 text-xs`}>
-                    View in Profile
+                <Link href="/dashboard/settings#wallet-security" className={`${dash.ctaSecondary} !py-2 !px-3 text-xs`}>
+                    Open Settings
                 </Link>
                 <button
                     type="button"
