@@ -6,7 +6,7 @@ import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { cryptoToZmw, getFees, getLimits, getRates } from '@/lib/rates';
 import { sendPushNotification } from '@/lib/push';
 import { auditSign, assertDailySignLimit, clientIp, getUserWalletSecret } from '@/lib/signer';
-import { phonesMatch } from '@/lib/phone';
+import { formatPhoneE164ForMarket, isValidPhoneForMarket } from '@/lib/phone';
 import { parsePositiveDecimalOrThrow } from '@/lib/parse-amount';
 import { coerceIntentPayload } from '@/lib/intent-payload';
 import { randomInt } from 'crypto';
@@ -28,30 +28,43 @@ export async function validateSell(userId: string, payload: SellPayload) {
     const walletPublic = String(user.wallet_public ?? '');
     const assetLabel = payload.asset === 'usdc' ? 'USDC' : 'XLM';
 
+    const countryCode = String(user.country_code ?? 'ZM');
+    let phone: string;
+    try {
+        phone = formatPhoneE164ForMarket(payload.phone, countryCode);
+    } catch {
+        throw new Error('Please enter a valid mobile number to receive the cash');
+    }
+    if (!isValidPhoneForMarket(phone, countryCode)) {
+        throw new Error('Please enter a valid mobile number to receive the cash');
+    }
+
     const balance =
         payload.asset === 'usdc'
             ? await StellarService.getUSDCBalance(walletPublic)
             : await StellarService.getBalance(walletPublic);
     const balanceNum = Number(balance);
 
-    if (balanceNum < payload.amount) {
-        throw new Error(`Insufficient ${assetLabel} balance. You have ${balance} ${assetLabel}.`);
-    }
-    if (payload.asset === 'xlm' && balanceNum - payload.amount < 0.01) {
-        throw new Error('Keep at least 0.01 XLM for network fees. Reduce the amount to cash out.');
-    }
-
-    const phoneDigits = payload.phone.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
-    if (phoneDigits.length < 10) {
-        throw new Error('Please enter a valid mobile number to receive the cash');
-    }
-
-    const profilePhone = String(user.phone_number ?? '').trim();
-    if (!profilePhone || profilePhone.replace(/\D/g, '').length < 10) {
-        throw new Error('Add your mobile money number in your profile before cashing out.');
-    }
-    if (!phonesMatch(profilePhone, payload.phone)) {
-        throw new Error('Cash out must use the mobile money number on your profile.');
+    if (payload.asset === 'usdc') {
+        if (balanceNum < payload.amount) {
+            throw new Error(`Insufficient USDC balance. You have ${balance} USDC.`);
+        }
+        const { spendable: xlmForFees } = await StellarService.getSpendableXlm(walletPublic);
+        if (xlmForFees < 0.001) {
+            throw new Error('Keep a small amount of XLM in your wallet to pay network fees for USDC transfers.');
+        }
+    } else {
+        const { total, spendable } = await StellarService.getSpendableXlm(walletPublic);
+        if (spendable < payload.amount - 1e-7) {
+            if (spendable < 0.01) {
+                throw new Error(
+                    `Insufficient XLM. You have ${total.toFixed(4)} XLM but most is locked for your wallet and USDC trustline. Deposit a little more XLM, then try again.`
+                );
+            }
+            throw new Error(
+                `You can cash out up to ${spendable.toFixed(4)} XLM. About ${(total - spendable).toFixed(4)} XLM must stay in your wallet for Stellar network reserves.`
+            );
+        }
     }
 
     const [rates, fees, limits] = await Promise.all([getRates(), getFees(), getLimits()]);
@@ -63,7 +76,7 @@ export async function validateSell(userId: string, payload: SellPayload) {
         throw new Error(`Maximum ${limits.max_withdraw_zmw} ZMW per withdrawal.`);
     }
 
-    return { user, amountFiat, phone: payload.phone, assetLabel };
+    return { user, amountFiat, phone, assetLabel };
 }
 
 export async function executeSell(

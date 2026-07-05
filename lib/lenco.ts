@@ -4,7 +4,7 @@
  * Auth: Bearer LENCO_SECRET_KEY
  */
 
-import { diagnoseLencoSecretKey, formatPhoneForLenco, mapLencoCollectionError } from '@/lib/lenco-config';
+import { diagnoseLencoSecretKey, formatPhoneForLenco, mapLencoCollectionError, mapLencoPayoutError } from '@/lib/lenco-config';
 
 const LENCO_API_URL = (process.env.LENCO_API_URL || 'https://api.lenco.co/access/v2').trim();
 const LENCO_SECRET_KEY = process.env.LENCO_SECRET_KEY?.trim();
@@ -142,7 +142,9 @@ export class LencoService {
       });
 
       const result = await response.json().catch(() => ({}));
-      const errMsg = result?.message ?? result?.data?.message ?? (Array.isArray(result?.errors) ? result.errors.map((e: { message?: string }) => e.message).join('; ') : null) ?? 'Failed to initiate payout';
+      const rawMsg = result?.message ?? result?.data?.message ?? (Array.isArray(result?.errors) ? result.errors.map((e: { message?: string }) => e.message).join('; ') : null) ?? 'Failed to initiate payout';
+      const errorCode = result?.errorCode != null ? String(result.errorCode) : undefined;
+      const errMsg = mapLencoPayoutError(rawMsg, errorCode, data.operator);
 
       if (!response.ok) {
         console.error('Lenco Payout Error:', result);

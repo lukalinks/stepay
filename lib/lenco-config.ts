@@ -64,6 +64,16 @@ export function mapLencoCollectionError(message: string, errorCode?: string, ope
     return message;
 }
 
+export function mapLencoPayoutError(message: string, errorCode?: string, operator?: string): string {
+    const mapped = mapLencoCollectionError(message, errorCode, operator);
+    if (mapped !== message) return mapped;
+    const lower = message.toLowerCase();
+    if (lower.includes('insufficient') && lower.includes('balance')) {
+        return 'Payout could not be sent — our mobile money float is temporarily low. Please try again shortly or contact support.';
+    }
+    return message;
+}
+
 export async function probeLencoAuth(): Promise<{
     ok: boolean;
     status: number;

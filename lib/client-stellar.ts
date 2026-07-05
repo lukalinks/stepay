@@ -5,6 +5,7 @@ import {
     PLATFORM_WALLET_PUBLIC,
     USDC_ISSUER,
 } from '@/lib/constants';
+import { parseStellarError } from '@/lib/stellar-error';
 
 export type ClientPaymentPlan = {
     action: 'payment';
@@ -120,8 +121,12 @@ export async function clientSendPayment(opts: {
 
     const tx = builder.build();
     tx.sign(keypair);
-    const result = await server.submitTransaction(tx);
-    return result.hash;
+    try {
+        const result = await server.submitTransaction(tx);
+        return result.hash;
+    } catch (err) {
+        throw new Error(parseStellarError(err));
+    }
 }
 
 export async function clientExecutePlan(plan: ClientTxPlan, secretKey: string): Promise<string> {

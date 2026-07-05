@@ -1,5 +1,6 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { USDC_ISSUER, MIN_XLM_FOR_USDC_TRUSTLINE, MIN_XLM_NEW_ACCOUNT_FOR_USDC } from './constants';
+import { parseStellarError } from './stellar-error';
 
 const HORIZON_URL = 'https://horizon.stellar.org';
 const server = new StellarSdk.Horizon.Server(HORIZON_URL);
@@ -21,6 +22,21 @@ export class StellarService {
             publicKey: pair.publicKey(),
             secretKey: pair.secret(),
         };
+    }
+
+    /**
+     * XLM available to send after Stellar minimum balance (base + subentries) and fee buffer.
+     */
+    static async getSpendableXlm(publicKey: string): Promise<{ total: number; spendable: number; reserved: number }> {
+        const account = await server.loadAccount(publicKey);
+        const native = account.balances.find((b) => b.asset_type === 'native');
+        const total = Number(native?.balance ?? 0);
+        const subentries = Number(account.subentry_count ?? 0);
+        const baseReserve = 0.5;
+        const minBalance = (2 + subentries) * baseReserve;
+        const feeBuffer = 0.001;
+        const spendable = Math.max(0, total - minBalance - feeBuffer);
+        return { total, spendable, reserved: total - spendable };
     }
 
     /**
@@ -189,9 +205,9 @@ export class StellarService {
             const result = await server.submitTransaction(transaction);
             console.log('Stellar Transaction Success:', result.hash);
             return result.hash;
-        } catch (error: any) {
-            console.error('Stellar Transaction Failed:', error.response?.data || error.message);
-            throw error;
+        } catch (error: unknown) {
+            console.error('Stellar Transaction Failed:', error);
+            throw new Error(parseStellarError(error));
         }
     }
 

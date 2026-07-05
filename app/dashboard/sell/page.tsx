@@ -28,6 +28,8 @@ function toFriendlySellError(msg?: string): string {
     if (m.includes('keep') && m.includes('xlm')) return msg;
     if (m.includes('wallet')) return 'Your wallet couldn\'t be found. Please contact support.';
     if (m.includes('payout') || m.includes('lenco')) return 'We couldn\'t send the cash to your phone right now. Your crypto is safe—please try again or contact support.';
+    if (m.includes('request failed with status code')) return 'Transfer failed. Check your balance (keep some XLM for network reserves) and try a smaller amount.';
+    if (m.includes('network reserves') || m.includes('trustline')) return msg;
     if (m.includes('mobile') || m.includes('phone') || m.includes('number')) return msg;
     if (m.includes('unauthorized')) return 'Please sign in again to continue.';
     return msg;
@@ -270,7 +272,7 @@ export default function SellPage() {
                                         required
                                     />
                                 </div>
-                                <p className={`${dash.hint} mt-1`}>Mobile money payout</p>
+                                <p className={`${dash.hint} mt-1`}>Any valid {market.currency} mobile money number</p>
                             </div>
                         </div>
                         )}

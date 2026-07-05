@@ -219,14 +219,17 @@ export default function CheckoutPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={dash.label}>Mobile money number</label>
-                                    <div className="flex gap-2">
-                                        <span className={`${dash.input} flex items-center px-3 text-white/50 shrink-0 w-auto`}>
-                                            {dialCode}
-                                        </span>
+                                    <label className={dash.label} htmlFor="checkout-mm-phone">
+                                        Mobile money number
+                                    </label>
+                                    <div className={dash.phoneGroup}>
+                                        <span className={dash.phonePrefix}>{dialCode}</span>
                                         <input
+                                            id="checkout-mm-phone"
                                             type="tel"
-                                            className={`${dash.input} flex-1`}
+                                            inputMode="tel"
+                                            autoComplete="tel"
+                                            className={dash.phoneInput}
                                             placeholder="97 123 4567"
                                             value={phone}
                                             onChange={(e) => setPhone(e.target.value)}
