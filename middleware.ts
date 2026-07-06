@@ -107,7 +107,7 @@ export default auth((request) => {
         }
         if (pathname.startsWith('/admin')) {
             const role = (request.auth.user as { role?: string } | undefined)?.role;
-            if (role !== 'admin') {
+            if (!role || !['admin', 'admin_ops', 'admin_support'].includes(role)) {
                 const dest = onAdminHost ? mainDashboardUrl() : new URL('/dashboard', `${requestBaseUrl(request)}/`);
                 return NextResponse.redirect(dest);
             }

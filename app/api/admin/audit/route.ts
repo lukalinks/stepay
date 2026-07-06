@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
+import { getAdminContext } from '@/lib/admin-auth';
 
 export async function GET(request: Request) {
-    const adminId = await requireAdmin(request);
-    if (!adminId) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Copy, Check } from 'lucide-react';
 import {
@@ -110,7 +111,11 @@ export default function AdminUsersPage() {
                             <tbody className="divide-y divide-slate-100">
                                 {users.map((u) => (
                                     <tr key={u.id} className="transition-colors hover:bg-slate-50/70">
-                                        <td className="px-5 py-4 font-medium text-slate-800">{u.email || '—'}</td>
+                                        <td className="px-5 py-4 font-medium text-slate-800">
+                                            <Link href={`/admin/users/${u.id}`} className="text-[var(--brand-accent)] hover:underline">
+                                                {u.email || '—'}
+                                            </Link>
+                                        </td>
                                         <td className="px-5 py-4 text-slate-600">{u.phone || '—'}</td>
                                         <td className="px-5 py-4 text-slate-600">{u.countryCode}</td>
                                         <td className="px-5 py-4">

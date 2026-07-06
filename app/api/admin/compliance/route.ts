@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
+import { getAdminContext } from '@/lib/admin-auth';
+import { logAdminAction } from '@/lib/admin-audit';
 
 export async function GET(request: Request) {
-    const adminId = await requireAdmin(request);
-    if (!adminId) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -58,8 +59,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-    const adminId = await requireAdmin(request);
-    if (!adminId) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -71,6 +72,13 @@ export async function PATCH(request: Request) {
         }
 
         await sql`UPDATE compliance_alerts SET resolved = true WHERE id = ${alertId}`;
+        await logAdminAction({
+            adminUserId: ctx.userId,
+            action: 'compliance.resolve_alert',
+            targetType: 'compliance_alert',
+            targetId: alertId,
+            ip: ctx.ip,
+        });
         return NextResponse.json({ success: true });
     } catch (err) {
         console.error('Admin compliance PATCH:', err);

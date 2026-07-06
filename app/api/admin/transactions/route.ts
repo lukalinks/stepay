@@ -1,19 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getUserIdFromRequest } from '@/lib/auth';
-
-async function requireAdmin(request: Request): Promise<string | null> {
-    const userId = await getUserIdFromRequest(request);
-    if (!userId) return null;
-    const rows = await sql`
-        SELECT role FROM users WHERE id = ${userId} LIMIT 1
-    `;
-    return (rows[0] as { role?: string } | undefined)?.role === 'admin' ? userId : null;
-}
+import { getAdminContext } from '@/lib/admin-auth';
 
 export async function GET(request: Request) {
-    const adminId = await requireAdmin(request);
-    if (!adminId) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { searchParams } = new URL(request.url);

@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getUserIdFromRequest } from '@/lib/auth';
 import { invalidateRatesCache } from '@/lib/rates';
-
-async function isAdmin(request: Request): Promise<boolean> {
-    const userId = await getUserIdFromRequest(request);
-    if (!userId) return false;
-    const rows = await sql`
-        SELECT role FROM users WHERE id = ${userId} LIMIT 1
-    `;
-    return (rows[0] as { role?: string } | undefined)?.role === 'admin';
-}
+import { canChangeSettings, getAdminContext } from '@/lib/admin-auth';
+import { logAdminAction } from '@/lib/admin-audit';
 
 /** GET - fetch current settings */
 export async function GET(request: Request) {
-    if (!(await isAdmin(request))) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
@@ -47,8 +40,12 @@ export async function GET(request: Request) {
 
 /** PATCH - update rates and/or fees */
 export async function PATCH(request: Request) {
-    if (!(await isAdmin(request))) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canChangeSettings(ctx.role)) {
+        return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
     try {
         const body = await request.json().catch(() => ({}));
@@ -99,6 +96,12 @@ export async function PATCH(request: Request) {
         }
 
         invalidateRatesCache();
+        await logAdminAction({
+            adminUserId: ctx.userId,
+            action: 'settings.update',
+            details: { rates: !!rates, fee: !!fee, limits: !!limits },
+            ip: ctx.ip,
+        });
         return NextResponse.json({ success: true });
     } catch (err) {
         console.error('Admin settings PATCH:', err);

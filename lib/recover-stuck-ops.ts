@@ -200,3 +200,53 @@ export async function tryCompleteUserStuckOps(userId: string): Promise<Array<{ i
     }
     return results;
 }
+
+async function loadStuckTxRow(txId: string): Promise<StuckTxRow | null> {
+    const rows = await sql`
+        SELECT t.id, t.user_id, t.type, t.status, t.reference, t.deposit_memo,
+               t.amount_fiat, t.amount_xlm, t.asset, u.wallet_public
+        FROM transactions t
+        JOIN users u ON u.id = t.user_id
+        WHERE t.id = ${txId}
+          AND t.type IN ('SELL', 'SWAP')
+          AND t.status IN ('PENDING', 'PROCESSING')
+        LIMIT 1
+    `;
+    return (rows[0] as StuckTxRow | undefined) ?? null;
+}
+
+export async function tryCompleteStuckTxById(txId: string): Promise<'completed' | 'pending' | 'failed' | 'not_found'> {
+    const row = await loadStuckTxRow(txId);
+    if (!row) return 'not_found';
+    if (row.type === 'SELL') return tryCompleteStuckSell(row);
+    if (row.type === 'SWAP') return tryCompleteStuckSwap(row);
+    return 'pending';
+}
+
+export async function listStuckTransactions(limit = 50): Promise<StuckTxRow[]> {
+    const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const rows = await sql`
+        SELECT t.id, t.user_id, t.type, t.status, t.reference, t.deposit_memo,
+               t.amount_fiat, t.amount_xlm, t.asset, u.wallet_public
+        FROM transactions t
+        JOIN users u ON u.id = t.user_id
+        WHERE t.type IN ('SELL', 'SWAP')
+          AND t.status IN ('PENDING', 'PROCESSING')
+          AND t.created_at >= ${since}
+        ORDER BY t.created_at ASC
+        LIMIT ${limit}
+    `;
+    return rows as unknown as StuckTxRow[];
+}
+
+export async function retryAllStuckOps(): Promise<Array<{ id: string; type: string; status: string }>> {
+    const stuck = await listStuckTransactions(25);
+    const results: Array<{ id: string; type: string; status: string }> = [];
+    for (const row of stuck) {
+        let status: 'completed' | 'pending' | 'failed' = 'pending';
+        if (row.type === 'SELL') status = await tryCompleteStuckSell(row);
+        else if (row.type === 'SWAP') status = await tryCompleteStuckSwap(row);
+        results.push({ id: row.id, type: row.type, status });
+    }
+    return results;
+}

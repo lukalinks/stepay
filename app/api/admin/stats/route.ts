@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
+import { getAdminContext } from '@/lib/admin-auth';
+import { getAdminHealth } from '@/lib/admin-health';
 
 export async function GET(request: Request) {
-    const adminId = await requireAdmin(request);
-    if (!adminId) {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -58,6 +59,8 @@ export async function GET(request: Request) {
         const todayBuyVolume = (todayBuy as { amount_fiat?: number }[]).reduce((s, t) => s + (t.amount_fiat ?? 0), 0);
         const todaySellVolume = (todaySell as { amount_fiat?: number }[]).reduce((s, t) => s + (t.amount_fiat ?? 0), 0);
 
+        const healthData = await getAdminHealth();
+
         return NextResponse.json({
             users: userCount ?? 0,
             transactions: txCount ?? 0,
@@ -69,12 +72,9 @@ export async function GET(request: Request) {
             todayBuyVolume,
             todaySellVolume,
             todayVolume: todayBuyVolume + todaySellVolume,
-            health: {
-                auth: !!process.env.AUTH_SECRET?.trim(),
-                smtp: !!(process.env.SMTP_HOST?.trim() || process.env.RESEND_API_KEY?.trim()),
-                encryption: !!process.env.WALLET_ENCRYPTION_KEY?.trim(),
-                lenco: !!process.env.LENCO_SECRET_KEY?.trim(),
-            },
+            health: healthData.env,
+            probes: healthData.probes,
+            adminRole: ctx.role,
         });
     } catch (err) {
         console.error('Admin stats:', err);

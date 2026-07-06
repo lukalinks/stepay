@@ -11,6 +11,7 @@ import {
     RefreshCw,
     AlertCircle,
     UserPlus,
+    Wrench,
 } from 'lucide-react';
 import {
     AdminBadge,
@@ -21,6 +22,7 @@ import {
     admin,
     txStatusTone,
 } from '@/components/admin/admin-ui';
+import { VolumeChart, SignupChart } from '@/components/admin/VolumeChart';
 
 function formatAdminCrypto(amount: number, asset: string): string {
     const n = Number(amount) || 0;
@@ -53,22 +55,36 @@ type Stats = {
     todayBuyVolume: number;
     todaySellVolume: number;
     health: { auth: boolean; smtp: boolean; encryption: boolean; lenco: boolean };
+    probes?: Array<{ ok: boolean; label: string; detail?: string; checkedAt: string }>;
+    adminRole?: string;
+};
+
+type Analytics = {
+    dailyVolume: { day: string; buyZmw: number; sellZmw: number }[];
+    signupDaily: { day: string; count: number }[];
+    failedRatePct: number;
 };
 
 export default function AdminPage() {
     const [stats, setStats] = useState<Stats | null>(null);
+    const [analytics, setAnalytics] = useState<Analytics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     const load = useCallback(() => {
         setLoading(true);
         setError('');
-        fetch('/api/admin/stats')
-            .then((res) => {
+        Promise.all([
+            fetch('/api/admin/stats').then((res) => {
                 if (!res.ok) throw new Error('Could not load dashboard');
                 return res.json();
+            }),
+            fetch('/api/admin/analytics?days=30').then((res) => (res.ok ? res.json() : null)),
+        ])
+            .then(([statsData, analyticsData]) => {
+                setStats(statsData);
+                setAnalytics(analyticsData);
             })
-            .then((data) => setStats(data))
             .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
             .finally(() => setLoading(false));
     }, []);
@@ -97,19 +113,44 @@ export default function AdminPage() {
             {stats?.health && (
                 <div className={`${admin.card} p-4`}>
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">System health</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-4">
                         {(
                             [
                                 ['Auth', stats.health.auth],
                                 ['Email', stats.health.smtp],
                                 ['Wallet encryption', stats.health.encryption],
-                                ['Lenco MoMo', stats.health.lenco],
+                                ['Lenco key', stats.health.lenco],
                             ] as const
                         ).map(([label, ok]) => (
                             <AdminBadge key={label} tone={ok ? 'success' : 'danger'}>
                                 {label}: {ok ? 'OK' : 'Missing'}
                             </AdminBadge>
                         ))}
+                    </div>
+                    {stats.probes && stats.probes.length > 0 && (
+                        <div className="space-y-2 border-t border-slate-100 pt-3">
+                            <p className="text-xs font-medium text-slate-500">Live probes</p>
+                            {stats.probes.map((p) => (
+                                <div key={p.label} className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-700">{p.label}</span>
+                                    <AdminBadge tone={p.ok ? 'success' : 'danger'}>{p.detail || (p.ok ? 'OK' : 'Fail')}</AdminBadge>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {analytics && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <div className={`${admin.card} p-5`}>
+                        <VolumeChart data={analytics.dailyVolume} title="30-day volume (ZMW)" />
+                    </div>
+                    <div className={`${admin.card} p-5`}>
+                        <SignupChart data={analytics.signupDaily} />
+                        <p className="mt-4 text-sm text-slate-500">
+                            Failed tx rate (30d): <span className="font-semibold text-slate-800">{analytics.failedRatePct}%</span>
+                        </p>
                     </div>
                 </div>
             )}
@@ -132,8 +173,8 @@ export default function AdminPage() {
                     label="Pending"
                     value={stats?.pendingCount ?? 0}
                     hint="Awaiting payment or crediting"
-                    href="/admin/transactions?status=PENDING"
-                    icon={History}
+                    href="/admin/operations"
+                    icon={Wrench}
                     tone="warning"
                 />
                 <AdminStatCard

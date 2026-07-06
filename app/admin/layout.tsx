@@ -3,16 +3,20 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Settings, ArrowLeft, Users, History, LayoutDashboard, Menu, X, Scale, FileSearch } from 'lucide-react';
+import { Settings, ArrowLeft, Users, History, LayoutDashboard, Menu, X, Scale, FileSearch, Wrench, Wallet, Store, Download } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { mainDashboardUrl } from '@/lib/hosts';
 
 const navItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { href: '/admin/operations', label: 'Operations', icon: Wrench },
+    { href: '/admin/treasury', label: 'Treasury', icon: Wallet },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/transactions', label: 'Transactions', icon: History },
+    { href: '/admin/merchants', label: 'Merchants', icon: Store },
     { href: '/admin/audit', label: 'Security', icon: FileSearch },
     { href: '/admin/compliance', label: 'Compliance', icon: Scale },
+    { href: '/admin/reports', label: 'Reports', icon: Download },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -37,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 return res.json();
             })
             .then((data) => {
-                if (data && data.user?.role !== 'admin') {
+                if (data && !['admin', 'admin_ops', 'admin_support'].includes(data.user?.role)) {
                     window.location.href = mainDashboardUrl();
                 }
             })

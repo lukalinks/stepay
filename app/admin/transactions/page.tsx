@@ -13,6 +13,7 @@ import {
     admin,
     txStatusTone,
 } from '@/components/admin/admin-ui';
+import { TxDetailDrawer } from '@/components/admin/TxDetailDrawer';
 
 interface TxRow {
     id: string;
@@ -45,6 +46,14 @@ function AdminTransactionsContent() {
     const [error, setError] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status')?.toUpperCase() || '');
+    const [selectedTx, setSelectedTx] = useState<string | null>(null);
+    const [canRunOps, setCanRunOps] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/admin/stats')
+            .then((r) => r.json())
+            .then((d) => setCanRunOps(['admin', 'admin_ops'].includes(d.adminRole)));
+    }, []);
 
     const fetchTxs = useCallback(() => {
         setLoading(true);
@@ -141,7 +150,11 @@ function AdminTransactionsContent() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {txs.map((tx) => (
-                                    <tr key={tx.id} className="transition-colors hover:bg-slate-50/70">
+                                    <tr
+                                        key={tx.id}
+                                        className="cursor-pointer transition-colors hover:bg-slate-50/70"
+                                        onClick={() => setSelectedTx(tx.id)}
+                                    >
                                         <td className="px-5 py-4">
                                             <div className="flex items-center gap-2">
                                                 {typeIcon(tx.type)}
@@ -197,6 +210,13 @@ function AdminTransactionsContent() {
                 </div>
                 <AdminPagination offset={offset} limit={PAGE_SIZE} total={total} onChange={setOffset} />
             </div>
+
+            <TxDetailDrawer
+                txId={selectedTx}
+                onClose={() => setSelectedTx(null)}
+                onAction={fetchTxs}
+                canRunOps={canRunOps}
+            />
         </div>
     );
 }
