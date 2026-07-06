@@ -201,8 +201,10 @@ export async function finalizeSellClientTx(
     await assertDailySignLimit(userId);
     const payload = parseSellPayload(intentPayload);
     const clientPlan = plan as SellClientPlan;
-    const userRows = await sql`SELECT wallet_public, push_token FROM users WHERE id = ${userId} LIMIT 1`;
-    const user = userRows[0] as { wallet_public: string; push_token?: string | null } | undefined;
+    const userRows = await sql`
+        SELECT wallet_public, push_token, country_code FROM users WHERE id = ${userId} LIMIT 1
+    `;
+    const user = userRows[0] as { wallet_public: string; push_token?: string | null; country_code?: string | null } | undefined;
     if (!user) throw new Error('User not found');
 
     await verifyOutgoingPayment({
@@ -214,7 +216,25 @@ export async function finalizeSellClientTx(
         memo: clientPlan.depositMemo,
     });
 
-    const { amountFiat, phone, assetLabel } = await validateSell(userId, payload);
+    const txRows = await sql`
+        SELECT amount_fiat FROM transactions WHERE id = ${clientPlan.txRecordId} LIMIT 1
+    `;
+    const txRow = txRows[0] as { amount_fiat?: number } | undefined;
+    if (!txRow) throw new Error('Cash out record not found.');
+
+    const amountFiat = Number(txRow.amount_fiat);
+    const assetLabel = clientPlan.asset === 'usdc' ? 'USDC' : 'XLM';
+    const countryCode = String(user.country_code ?? 'ZM');
+    let phone: string;
+    try {
+        phone = formatPhoneE164ForMarket(payload.phone, countryCode);
+    } catch {
+        throw new Error('Please enter a valid mobile number to receive the cash');
+    }
+    if (!isValidPhoneForMarket(phone, countryCode)) {
+        throw new Error('Please enter a valid mobile number to receive the cash');
+    }
+
     const ip = clientIp(opts.request);
     const reference = clientPlan.reference;
 

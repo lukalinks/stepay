@@ -14,6 +14,7 @@ export default function TransactionsPage() {
     const router = useRouter();
 
     const fetchData = useCallback(() => {
+        fetch('/api/operations/retry-stuck', { method: 'POST' }).catch(() => {});
         fetch('/api/transactions')
             .then((res) => {
                 if (res.status === 401) {
@@ -29,7 +30,10 @@ export default function TransactionsPage() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    const hasPending = data?.transactions?.some((tx: { status: string }) => tx.status === 'PENDING');
+    const hasPending = data?.transactions?.some((tx: { status: string }) => {
+        const s = (tx.status || '').toUpperCase();
+        return s === 'PENDING' || s === 'PROCESSING';
+    });
     useEffect(() => {
         if (!hasPending) return;
         const id = setInterval(fetchData, 10000);

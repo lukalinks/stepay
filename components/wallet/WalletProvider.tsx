@@ -260,6 +260,7 @@ export function WalletProvider({
             await fetch('/api/deposit/retry-pending', { method: 'POST' });
             await clientEnsureUSDCTrustline(secret);
             await fetch('/api/deposit/retry-pending', { method: 'POST' });
+            await fetch('/api/operations/retry-stuck', { method: 'POST' });
         } catch {
             // user may not have XLM for trustline yet
         }

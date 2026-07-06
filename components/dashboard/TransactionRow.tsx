@@ -20,7 +20,9 @@ function formatStatus(status: string, type?: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'COMPLETED') return 'Completed';
     if (s === 'FAILED') return 'Failed';
+    if (s === 'PROCESSING') return 'Processing';
     if (s === 'PENDING' && type === 'BUY') return 'Awaiting payment';
+    if (s === 'PENDING' && type === 'SWAP') return 'Processing';
     if (s === 'PENDING') return 'Pending';
     return status || 'Pending';
 }

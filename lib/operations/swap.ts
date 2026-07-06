@@ -191,7 +191,8 @@ export async function finalizeSwapClientTx(
     const payload = parseSwapPayload(intentPayload);
     const clientPlan = plan as SwapClientPlan;
     const platformSecret = getPlatformWalletSecret();
-    const { user } = await validateSwap(userId, payload);
+    const user = await loadUserWalletRow(userId);
+    if (!user) throw new Error('User not found');
     const ip = clientIp(opts.request);
 
     await verifyOutgoingPayment({
