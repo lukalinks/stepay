@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+/* Stepay — champagne gold on dark (sync with lib/brand.ts) */
+:root {
+  /* Light surfaces (legal / admin pages only) */
+  --background: #faf9f7;
+  --background-warm: #fafaf9;
+  --surface: #ffffff;
+  --surface-muted: rgba(248, 250, 252, 0.8);
+  
+  /* Text */
+  --foreground: #0f172a;
+  --foreground-muted: #64748b;
+  --foreground-subtle: #94a3b8;
+  
+  /* Primary = brand gold */
+  --primary: #C9A962;
+  --primary-hover: #DFC484;
+  --primary-muted: rgba(201, 169, 98, 0.14);
+  --primary-focus: rgba(201, 169, 98, 0.3);
+  
+  /* Secondary accent */
+  --accent: #DFC484;
+  --accent-hover: #C9A962;
+  --accent-muted: rgba(201, 169, 98, 0.12);
+  
+  /* Semantic */
+  --success: #059669;
+  --success-muted: #d1fae5;
+  --error: #dc2626;
+  --error-muted: #fee2e2;
+  --warning: #d97706;
+  
+  /* Borders */
+  --border: #e2e8f0;
+  --border-subtle: rgba(226, 232, 240, 0.6);
+  
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+
+  /* Premium brand accent (sync with lib/brand.ts) */
+  --brand-accent: #C9A962;
+  --brand-accent-hover: #DFC484;
+  --brand-accent-light: #F0E6D0;
+  --brand-accent-contrast: #0C0A06;
+  --brand-accent-muted: rgba(201, 169, 98, 0.14);
+  --brand-accent-subtle: rgba(201, 169, 98, 0.08);
+  --brand-accent-border: rgba(201, 169, 98, 0.28);
+  --brand-accent-ring: rgba(201, 169, 98, 0.3);
+  --brand-accent-glow: rgba(201, 169, 98, 0.35);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-brand: var(--brand-accent);
+  --color-brand-hover: var(--brand-accent-hover);
+  --color-brand-contrast: var(--brand-accent-contrast);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-heading: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  background: #050505;
+  color: #fff;
+  font-family: var(--font-sans);
+  padding-top: var(--safe-area-inset-top);
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--brand-accent-muted);
+  color: var(--brand-accent-light);
+}
+
+/* Distinctive heading font */
+h1, h2, h3, .font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Premium dashboard shell */
+.dashboard-shell {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -30%, var(--brand-accent-subtle) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+    #050505;
+}
+
+/* Subtle film grain overlay */
+.dashboard-grain::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Stepay brand motif - stepped gradient bars */
+.stepay-motif {
+  background: linear-gradient(135deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(201, 169, 98, 0.04) 45%,
+    rgba(201, 169, 98, 0.06) 55%,
+    transparent 60%,
+    transparent 100%
+  );
+}
+
+/* Subtle dot grid pattern */
+.stepay-dots {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Organic blob gradient */
+.stepay-blob {
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 20%, var(--brand-accent-subtle), transparent),
+    radial-gradient(ellipse 60% 80% at 20% 80%, rgba(201, 169, 98, 0.06), transparent);
+}
+
+/* Minimum touch target size for accessibility */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Refined focus ring — skip MUI components (they style focus on the fieldset/root) */
+input:focus-visible:not(.MuiInputBase-input),
+button:focus-visible:not(.MuiButtonBase-root),
+a:focus-visible,
+select:focus-visible:not(.MuiNativeSelect-select),
+textarea:focus-visible:not(.MuiInputBase-input) {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
+.MuiOutlinedInput-root:focus-within,
+.MuiOutlinedInput-root.Mui-focused,
+.MuiInputBase-input:focus,
+.MuiInputBase-input:focus-visible {
+  outline: none !important;
+}
