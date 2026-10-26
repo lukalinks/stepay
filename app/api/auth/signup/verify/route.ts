@@ -47,9 +47,12 @@ export async function POST(request: Request) {
             walletBackupEnc = serializeWalletVaultBackup(vault);
         }
 
+        const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
+
         const { userId, email } = await verifySignupAndCreateUser(signupId, code, walletPublic, {
             walletBackupEnc,
             cloudBackupEnabled,
+            inviteToken: inviteToken || null,
         });
 
         const token = await issueAuthJwt({
@@ -83,14 +86,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: r.error }, { status: r.status, headers: { 'Retry-After': String(r.retryAfterSec) } });
         }
         const msg = err instanceof Error ? err.message : 'Verification failed';
+        const lower = msg.toLowerCase();
         const status =
-            msg.includes('Incorrect') ||
-            msg.includes('expired') ||
-            msg.includes('Too many') ||
-            msg.includes('already exists') ||
-            msg.includes('wallet') ||
-            msg.includes('6-digit') ||
-            msg.includes('not found')
+            lower.includes('incorrect') ||
+            lower.includes('expired') ||
+            lower.includes('too many') ||
+            lower.includes('already exists') ||
+            lower.includes('wallet') ||
+            lower.includes('6-digit') ||
+            lower.includes('not found') ||
+            lower.includes('closed beta') ||
+            lower.includes('waitlist') ||
+            lower.includes('invite') ||
+            lower.includes('valid stellar')
                 ? 400
                 : 500;
         if (status === 500) console.error('Signup verify error:', err);

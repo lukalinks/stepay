@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw, Wallet, Banknote } from 'lucide-react';
+import { RefreshCw, Wallet, Banknote, ArrowLeftRight, Scale } from 'lucide-react';
 import {
     AdminBadge,
     AdminErrorBanner,
+    AdminKpiCard,
     AdminLoading,
     AdminPageHeader,
-    AdminStatCard,
     admin,
 } from '@/components/admin/admin-ui';
 
@@ -22,6 +22,10 @@ type Treasury = {
     todayPayoutsZmw: number;
     netTodayZmw: number;
 };
+
+function formatMoney(n: number) {
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 export default function AdminTreasuryPage() {
     const [data, setData] = useState<Treasury | null>(null);
@@ -51,13 +55,14 @@ export default function AdminTreasuryPage() {
     const floatLow = data?.lencoFloat != null && data.lencoFloat < data.pendingPayoutZmw;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 lg:space-y-8">
             <AdminPageHeader
+                eyebrow="Liquidity"
                 title="Treasury"
                 subtitle="Mobile money float, platform wallet, and payout liability"
                 action={
                     <button type="button" onClick={load} disabled={loading} className={admin.btnSecondary}>
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} strokeWidth={1.75} />
                         Refresh
                     </button>
                 }
@@ -66,55 +71,81 @@ export default function AdminTreasuryPage() {
             {error && <AdminErrorBanner message={error} />}
 
             {floatLow && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Lenco float may be insufficient for pending payouts ({data?.lencoFloat?.toLocaleString()} ZMW available vs{' '}
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                    Lenco float may be insufficient for pending payouts (
+                    {data?.lencoFloat?.toLocaleString()} ZMW available vs{' '}
                     {data?.pendingPayoutZmw.toLocaleString()} ZMW pending).
                 </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <AdminStatCard
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <AdminKpiCard
                     label="Lenco float"
-                    value={data?.lencoFloat != null ? `${data.lencoFloat.toLocaleString()} ZMW` : '—'}
-                    hint={data?.lencoOk ? 'API connected' : 'Could not fetch balance'}
+                    value={data?.lencoFloat != null ? `${formatMoney(data.lencoFloat)} ZMW` : '—'}
                     icon={Banknote}
-                    tone={floatLow ? 'warning' : 'default'}
+                    iconClassName={
+                        floatLow
+                            ? 'bg-amber-50/80 text-amber-700'
+                            : 'bg-[var(--brand-accent-muted)] text-[#8B7344]'
+                    }
                 />
-                <AdminStatCard
+                <AdminKpiCard
                     label="Platform XLM"
                     value={data?.platformXlm ?? '—'}
                     icon={Wallet}
+                    iconClassName="bg-sky-50/80 text-sky-700"
                 />
-                <AdminStatCard
+                <AdminKpiCard
                     label="Platform USDC"
                     value={data?.platformUsdc ?? '—'}
                     icon={Wallet}
+                    iconClassName="bg-emerald-50/80 text-emerald-700"
                 />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <div className={`${admin.card} p-5`}>
-                    <p className="text-xs font-semibold uppercase text-slate-400">Pending payout liability</p>
-                    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">
-                        {(data?.pendingPayoutZmw ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ZMW
+            <div className="grid gap-3 lg:grid-cols-2">
+                <div className={`${admin.card} p-3.5`}>
+                    <div className="flex items-start justify-between">
+                        <p className="text-[11px] font-medium text-slate-500">Pending payout liability</p>
+                        <div className="rounded-lg bg-rose-50/80 p-1.5 text-rose-700 ring-1 ring-inset ring-black/[0.03]">
+                            <Scale className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                    </div>
+                    <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                        {formatMoney(data?.pendingPayoutZmw ?? 0)} ZMW
                     </p>
-                    <p className="mt-1 text-sm text-slate-500">{data?.pendingPayoutCount ?? 0} SELL transactions</p>
+                    <p className="mt-2 text-[11px] text-slate-400">
+                        {data?.pendingPayoutCount ?? 0} payout transactions
+                    </p>
                 </div>
-                <div className={`${admin.card} p-5`}>
-                    <p className="text-xs font-semibold uppercase text-slate-400">Today net (collections − payouts)</p>
-                    <p className={`mt-2 text-3xl font-bold tabular-nums ${(data?.netTodayZmw ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {(data?.netTodayZmw ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ZMW
+                <div className={`${admin.card} p-3.5`}>
+                    <div className="flex items-start justify-between">
+                        <p className="text-[11px] font-medium text-slate-500">Today net (collections − payouts)</p>
+                        <div className="rounded-lg bg-violet-50/80 p-1.5 text-violet-700 ring-1 ring-inset ring-black/[0.03]">
+                            <ArrowLeftRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                    </div>
+                    <p
+                        className={`mt-2 text-xl font-semibold tabular-nums tracking-tight ${
+                            (data?.netTodayZmw ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                        }`}
+                    >
+                        {formatMoney(data?.netTodayZmw ?? 0)} ZMW
                     </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                        In {(data?.todayCollectionsZmw ?? 0).toLocaleString()} · Out {(data?.todayPayoutsZmw ?? 0).toLocaleString()}
+                    <p className="mt-2 text-[11px] text-slate-400">
+                        In {formatMoney(data?.todayCollectionsZmw ?? 0)} · Out{' '}
+                        {formatMoney(data?.todayPayoutsZmw ?? 0)}
                     </p>
                 </div>
             </div>
 
-            <div className={`${admin.card} p-4`}>
+            <div className={`${admin.card} flex items-center gap-3 px-5 py-4`}>
                 <AdminBadge tone={data?.lencoOk ? 'success' : 'danger'}>
                     Lenco {data?.lencoOk ? 'connected' : 'disconnected'}
                 </AdminBadge>
+                <p className="text-[11px] text-slate-400">
+                    {data?.lencoOk ? 'API balance fetch succeeded' : 'Could not fetch Lenco balance'}
+                </p>
             </div>
         </div>
     );

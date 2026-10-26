@@ -13,8 +13,9 @@ import Typography from '@mui/material/Typography';
 import { AuthAlert } from '@/components/auth/AuthAlert';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { accentLinkSx, authTextFieldSx, authSelectMenuProps, BRAND, primaryCtaSx } from '@/lib/brand';
-import { getMarket, listMarkets } from '@/lib/markets';
+import { formatMarketLabel, getMarket, listSelectableMarkets } from '@/lib/markets';
 import { localPhoneDisplayForMarket } from '@/lib/phone';
+import { safeInternalPath } from '@/lib/safe-redirect';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const sectionLabelSx = {
@@ -30,7 +31,7 @@ const sectionLabelSx = {
 function ProfileCompleteForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const nextPath = searchParams.get('next') || '/dashboard';
+    const nextPath = safeInternalPath(searchParams.get('next'), '/dashboard');
     const [fullName, setFullName] = useState('');
     const [countryCode, setCountryCode] = useState('ZM');
     const [phone, setPhone] = useState('');
@@ -53,11 +54,7 @@ function ProfileCompleteForm() {
             })
             .then((data) => {
                 if (!data) return;
-                if (data.isProfileComplete) {
-                    const target = nextPath.startsWith('/') ? nextPath : '/dashboard';
-                    router.replace(target);
-                    return;
-                }
+                // Always show the form so Edit / Change country work for completed profiles too.
                 setFullName(data.fullName || '');
                 const resolvedCountry = data.countryCode || 'ZM';
                 setCountryCode(resolvedCountry);
@@ -79,8 +76,8 @@ function ProfileCompleteForm() {
         e.preventDefault();
         const market = getMarket(countryCode);
         const phoneDigits = phone.replace(/\s+/g, '').replace(/\D/g, '');
-        if (phoneDigits.length < 9) {
-            setError(`Please enter a valid mobile money number for ${market.countryName}.`);
+        if (phoneDigits.replace(/^0/, '').length < market.phoneNationalLength) {
+            setError(`Please enter a valid mobile number for ${market.countryName}.`);
             return;
         }
         const fullPhone = `${market.phoneDialCode}${phoneDigits.replace(/^0/, '')}`;
@@ -104,8 +101,7 @@ function ProfileCompleteForm() {
             const data = await res.json().catch(() => ({}));
 
             if (res.ok && data.success !== false) {
-                const target = nextPath.startsWith('/') ? nextPath : '/dashboard';
-                router.push(target);
+                router.push(safeInternalPath(nextPath, '/dashboard'));
             } else {
                 setError(data.error || 'Failed to save. Please try again.');
             }
@@ -125,19 +121,18 @@ function ProfileCompleteForm() {
         );
     }
 
-    const skipHref = nextPath.startsWith('/') ? nextPath : '/dashboard';
+    const skipHref = safeInternalPath(nextPath, '/dashboard');
     const market = getMarket(countryCode);
     const selectedIdType = market.idDocumentTypes.find((t) => t.id === idDocumentType) ?? market.idDocumentTypes[0];
 
     return (
         <AuthShell
-            title="Complete your profile"
-            subtitle="We need a few details before you can deposit, swap, or cash out."
+            title="Edit profile"
+            subtitle="Country, phone, and details"
             footer={
                 <>
-                    Prefer to skip for now?{' '}
                     <MuiLink component={Link} href={skipHref} sx={accentLinkSx}>
-                        Continue without saving
+                        Cancel
                     </MuiLink>
                 </>
             }
@@ -166,12 +161,17 @@ function ProfileCompleteForm() {
                             required
                             fullWidth
                             sx={authTextFieldSx}
-                            helperText={`Payments in ${market.currency}. ${market.paymentMethods.includes('mobile_money') ? 'Mobile money only' : 'See available methods at checkout'}`}
-                            slotProps={{ select: authSelectMenuProps }}
+                            slotProps={{
+                                select: {
+                                    ...authSelectMenuProps,
+                                    renderValue: (value) => formatMarketLabel(getMarket(String(value))),
+                                },
+                            }}
                         >
-                            {listMarkets().map((m) => (
+                            {listSelectableMarkets().map((m) => (
                                 <MenuItem key={m.countryCode} value={m.countryCode}>
-                                    {m.countryName} ({m.currency})
+                                    {formatMarketLabel(m)}
+                                    {m.comingSoon ? ' · Soon' : ''}
                                 </MenuItem>
                             ))}
                         </TextField>

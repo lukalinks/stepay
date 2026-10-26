@@ -189,7 +189,9 @@ export class LencoService {
    * Fetch mobile money collection status by reference (v2).
    * Use this for deposits - status is 'pending' | 'successful' | 'failed' | 'pay-offline' etc.
    */
-  static async getCollectionByReference(reference: string): Promise<{ status: string; amount?: number } | null> {
+  static async getCollectionByReference(
+    reference: string
+  ): Promise<{ status: string; amount?: number; reasonForFailure?: string } | null> {
     if (!LENCO_SECRET_KEY) return null;
     try {
       const url = `${LENCO_API_URL}/collections/status/${encodeURIComponent(reference)}`;
@@ -198,13 +200,27 @@ export class LencoService {
         headers: LencoService.getHeaders(),
       });
       const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.status === false) {
+        console.warn(
+          'Lenco getCollectionByReference failed:',
+          reference,
+          response.status,
+          result?.message ?? result?.errorCode
+        );
+        return null;
+      }
       const data = result?.data;
-      if (!data) return null;
+      if (!data) {
+        console.warn('Lenco getCollectionByReference empty data:', reference, result?.message);
+        return null;
+      }
       const amountRaw = data.amount ?? data.collectedAmount ?? data.requestedAmount;
-      const amount = amountRaw != null ? Number(amountRaw) : undefined;
+      const amount = amountRaw != null ? parseFloat(String(amountRaw)) : undefined;
+      const reason = data.reasonForFailure != null ? String(data.reasonForFailure) : undefined;
       return {
-        status: (data.status || '').toLowerCase(),
+        status: String(data.status || '').toLowerCase(),
         ...(amount != null && !Number.isNaN(amount) ? { amount } : {}),
+        ...(reason ? { reasonForFailure: reason } : {}),
       };
     } catch (error: any) {
       console.error('Lenco getCollectionByReference:', error?.message);

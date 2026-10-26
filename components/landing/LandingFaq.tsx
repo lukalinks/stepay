@@ -12,28 +12,28 @@ import { landing } from '@/lib/landing-ui';
 
 const FAQ = [
   {
-    q: 'Do I need a bank account?',
-    a: 'No. Top up with mobile money from your phone and start sending or accepting payments in minutes.',
+    q: 'Do I need a bank account to use Stepay?',
+    a: 'No. You can top up with mobile money directly from your phone and start sending or accepting payments within minutes. A bank account is never required.',
   },
   {
-    q: 'Can I send money to other countries in Africa?',
-    a: 'Yes. Send to anyone on Stepay by phone number. Cross-border transfers typically settle in seconds on the Stellar network.',
+    q: 'How fast are cross-border transfers?',
+    a: 'Transfers between Stepay users typically settle in around 5 seconds on the Stellar network — compared to 2–5 business days with traditional banks.',
   },
   {
-    q: 'Can I hold dollars in Stepay?',
-    a: 'Yes. Hold USDC and XLM in your wallet and swap between them anytime. You control your keys at all times.',
+    q: 'Can I hold US dollars in my wallet?',
+    a: 'Yes. Hold USDC and XLM in your non-custodial wallet. Top up with mobile money, swap between assets anytime, and cash out when you need local currency.',
+  },
+  {
+    q: 'Is Stepay safe? Who holds my money?',
+    a: 'Stepay is non-custodial — your private keys stay on your device. We cannot access or move your funds. You are always in control.',
   },
   {
     q: 'Can businesses and freelancers use Stepay?',
-    a: 'Yes. Share a payment link or QR so customers and clients pay you directly. Great for shops, side projects, and remote work.',
+    a: 'Absolutely. Share a payment link or QR code so customers and clients pay you directly. Ideal for shops, schools, side projects, and remote work.',
   },
   {
-    q: 'What can I hold in my wallet?',
-    a: 'USDC and XLM. Assets you can send, swap, or cash out to mobile money.',
-  },
-  {
-    q: 'Is Stepay custodial?',
-    a: 'No. Your wallet keys stay on your device. Stepay cannot move your funds without you.',
+    q: 'How do I cash out to mobile money?',
+    a: 'From your dashboard, choose Sell/Withdraw, enter the amount, and select your mobile money provider. Funds arrive on your phone typically within minutes.',
   },
 ];
 
@@ -140,13 +140,16 @@ export function LandingFaq() {
   return (
     <Box id="faq" component="section" sx={{ py: landing.sectionPy, scrollMarginTop: landing.scrollMargin }}>
       <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 } }}>
-        <Box sx={{ textAlign: 'center', mb: { xs: 4, md: 5 } }}>
+        <Box sx={{ textAlign: 'center', mb: { xs: 4, md: 6 }, maxWidth: 480, mx: 'auto' }}>
           <Typography sx={landing.sectionLabel}>FAQ</Typography>
           <Typography
             variant="h4"
-            sx={{ ...landing.heading, mt: 2, fontSize: { xs: '1.5rem', md: '1.875rem' } }}
+            sx={{ ...landing.heading, mt: 2, fontSize: { xs: '1.5rem', md: '2rem' } }}
           >
-            Questions before you sign up
+            Common questions
+          </Typography>
+          <Typography sx={{ mt: 1.5, ...landing.body, fontSize: '0.9375rem' }}>
+            Everything you need to know before opening your wallet.
           </Typography>
         </Box>
 

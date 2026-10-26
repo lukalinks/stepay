@@ -11,6 +11,7 @@ import { getCheckoutByToken, markCheckoutPaid } from '@/lib/merchant-checkouts';
 import { deliverCheckoutWebhook } from '@/lib/merchant-webhooks';
 import { formatPhoneE164ForMarket, isValidPhoneForMarket } from '@/lib/phone';
 import { getMarket, marketSupportsPayment, resolveCountryCode, type MobileOperatorId } from '@/lib/markets';
+import type { LencoOperator } from '@/lib/lenco';
 import { sendPushNotification } from '@/lib/push';
 
 export async function quoteCheckoutMobileMoney(
@@ -53,6 +54,13 @@ export async function startCheckoutMobileMoneyPayment(
     const quote = await quoteCheckoutMobileMoney(amountUsdc, market.countryCode);
     if (!quote) throw new Error('Amount exceeds mobile money limits for this checkout.');
 
+    const { assertPlatformDepositLiquidity, DEPOSIT_UNAVAILABLE_MESSAGE } = await import('@/lib/liquidity');
+    try {
+        await assertPlatformDepositLiquidity({ asset: 'usdc', amountCrypto: amountUsdc });
+    } catch {
+        throw new Error(DEPOSIT_UNAVAILABLE_MESSAGE);
+    }
+
     const merchantUserId = String(checkout.merchant_user_id);
     const reference = `REF-${randomBytes(12).toString('hex')}`;
 
@@ -82,10 +90,18 @@ export async function startCheckoutMobileMoneyPayment(
     if (!txRows[0]) throw new Error('Could not start payment.');
 
     try {
+        const lencoOperator = (['mtn', 'airtel', 'zamtel'] as const).includes(
+            input.operator as LencoOperator
+        )
+            ? (input.operator as LencoOperator)
+            : null;
+        if (!lencoOperator) {
+            throw new Error('Selected network is not supported for mobile money.');
+        }
         await LencoService.createCollection({
             amount: quote.zmwAmount,
             phone,
-            operator: input.operator,
+            operator: lencoOperator,
             reference,
             country: market.lencoCountryCode,
             currency: market.currency,

@@ -9,6 +9,9 @@ export async function validateCheckoutSend(
     destAddress: string
 ): Promise<void> {
     if (!payload.checkoutToken) return;
+    if (payload.asset === 'usdt0') {
+        throw new Error('Checkouts settle in USDC.');
+    }
     await assertCheckoutPayable(
         payload.checkoutToken,
         payerId,
@@ -31,6 +34,9 @@ export async function completePaymentReferences(
     }
 
     if (payload.checkoutToken) {
+        if (payload.asset === 'usdt0') {
+            throw new Error('Checkouts settle in USDC.');
+        }
         const { checkoutId } = await assertCheckoutPayable(
             payload.checkoutToken,
             payerId,

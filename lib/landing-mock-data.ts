@@ -1,8 +1,8 @@
 import type { TxRow } from '@/components/dashboard/TransactionRow';
 
 export const LANDING_MOCK_USER = {
-  fullName: 'Amara Okonkwo',
-  email: 'amara@email.com',
+  fullName: 'Chanda Banda',
+  email: 'chanda@email.com',
   walletPublic: 'GDT5X7X8K9L2M3N4P5Q6R7S8T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2',
 };
 
@@ -27,7 +27,7 @@ export const LANDING_MOCK_TRANSACTIONS: TxRow[] = [
     amountXLM: 120,
     amountFiat: 15600,
     status: 'COMPLETED',
-    reference: 'send_ke_240608_a1',
+    reference: 'send_zm_240608_a1',
     txHash: 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456',
     createdAt: '2026-06-08T09:14:00.000Z',
   },
@@ -38,7 +38,7 @@ export const LANDING_MOCK_TRANSACTIONS: TxRow[] = [
     amountXLM: 450,
     amountFiat: 58500,
     status: 'COMPLETED',
-    reference: 'recv_ng_240607_b2',
+    reference: 'recv_zm_240607_b2',
     txHash: 'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678',
     createdAt: '2026-06-07T16:42:00.000Z',
   },

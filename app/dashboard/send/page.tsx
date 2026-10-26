@@ -14,6 +14,7 @@ import { WalletGateInline } from '@/components/wallet/WalletGateInline';
 import { useRequireWalletUnlocked } from '@/components/wallet/useRequireWalletUnlocked';
 
 type SendMode = 'phone' | 'address';
+type SendAsset = 'xlm' | 'usdc' | 'usdt0';
 
 function toFriendlySendError(msg?: string): string {
     if (!msg || msg.toLowerCase().includes('server')) return 'Something went wrong. Please try again in a moment.';
@@ -44,7 +45,7 @@ function SendPageInner() {
     const searchParams = useSearchParams();
     const { canProceed, needsUnlock } = useRequireWalletUnlocked();
     const [mode, setMode] = useState<SendMode>('phone');
-    const [asset, setAsset] = useState<'xlm' | 'usdc'>('usdc');
+    const [asset, setAsset] = useState<SendAsset>('usdc');
     const [phone, setPhone] = useState('');
     const [to, setTo] = useState('');
     const [amount, setAmount] = useState('');
@@ -68,7 +69,7 @@ function SendPageInner() {
     const [paymentLocked, setPaymentLocked] = useState(false);
     const [paymentLabel, setPaymentLabel] = useState<string | null>(null);
 
-    const minAmount = asset === 'usdc' ? 1 : 0.1;
+    const minAmount = asset === 'xlm' ? 0.1 : 1;
 
     useEffect(() => {
         const checkout = searchParams.get('checkout');
@@ -219,6 +220,7 @@ function SendPageInner() {
     };
 
     const handleConfirm = async () => {
+        if (!canProceed()) return;
         setIsLoading(true);
         setErrorMessage('');
         try {
@@ -333,6 +335,7 @@ function SendPageInner() {
                         <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
                             <button
                                 type="button"
+                                disabled={asset === 'usdt0'}
                                 onClick={() => setMode('phone')}
                                 className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
                                     mode === 'phone' ? 'bg-[var(--brand-accent-muted)] text-[var(--brand-accent)]' : 'text-white/50'
@@ -357,11 +360,18 @@ function SendPageInner() {
                                 <label className={dash.label}>Asset</label>
                                 <select
                                     value={asset}
-                                    onChange={(e) => { setAsset(e.target.value as 'xlm' | 'usdc'); setErrorMessage(''); setStatus('idle'); }}
+                                    onChange={(e) => {
+                                        const next = e.target.value as SendAsset;
+                                        setAsset(next);
+                                        if (next === 'usdt0') setMode('address');
+                                        setErrorMessage('');
+                                        setStatus('idle');
+                                    }}
                                     className={dash.select}
                                     disabled={paymentLocked}
                                 >
                                     <option value="usdc">USDC (digital dollar)</option>
+                                    <option value="usdt0">USDT0 (Tether dollar)</option>
                                     <option value="xlm">XLM</option>
                                 </select>
                             </div>
@@ -373,12 +383,15 @@ function SendPageInner() {
                                     onChange={(e) => { setAmount(e.target.value); setErrorMessage(''); setStatus('idle'); }}
                                     className={`${dash.input} font-semibold`}
                                     placeholder="0.00"
-                                    step={asset === 'usdc' ? '0.01' : '0.0000001'}
+                                    step={asset === 'xlm' ? '0.0000001' : '0.01'}
                                     min={minAmount}
                                     required
                                     readOnly={paymentLocked}
                                 />
-                                <p className={dash.hint}>Min {minAmount} {asset.toUpperCase()}</p>
+                                <p className={dash.hint}>
+                                    Min {minAmount} {asset.toUpperCase()}
+                                    {asset === 'usdt0' ? '. Send to a Stellar address. Cash in and cash out stay on USDC.' : ''}
+                                </p>
                             </div>
                         </div>
 

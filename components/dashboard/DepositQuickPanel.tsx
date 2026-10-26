@@ -1,13 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Message } from '@/components/Message';
+import { DepositStatusTracker, type DepositTrackStep } from '@/components/deposit/DepositStatusTracker';
 import { useMarketRates } from '@/components/market/useMarketRates';
 import { dash } from '@/lib/dashboard-ui';
 import { formatPhoneE164ForMarket, localPhoneDisplayForMarket } from '@/lib/phone';
 import type { MobileOperatorId } from '@/lib/markets';
 import { MobileOperatorPicker } from '@/components/MobileOperatorPicker';
+import { useWallet } from '@/components/wallet/WalletProvider';
+import { WalletGateInline } from '@/components/wallet/WalletGateInline';
+import { useRequireWalletUnlocked } from '@/components/wallet/useRequireWalletUnlocked';
+import { prepareUsdcWallet } from '@/lib/usdc-deposit-client';
+import {
+    clearActiveDeposit,
+    depositFailureCopy,
+    mapConfirmToDepositStep,
+    saveActiveDeposit,
+} from '@/lib/deposit-track-ui';
 
 const DEFAULT_RATES = { xlm: { buy: 3.5 }, usdc: { buy: 25 } } as const;
 
@@ -20,12 +31,22 @@ function toFriendlyDepositError(msg?: string, httpStatus?: number): string {
     if (!msg) return 'Something went wrong. Please try again.';
     if (httpStatus === 401) return 'Please sign in again to continue.';
     const m = msg.toLowerCase();
+    if (
+        httpStatus === 503 ||
+        m.includes('not available right now') ||
+        m.includes('try again later or contact support')
+    ) {
+        return 'Deposits are not available right now. Please try again later or contact support.';
+    }
     if (m.includes('minimum') || m.includes('maximum') || m.includes('phone') || m.includes('number')) return msg;
     if (m.includes('lenco') || m.includes('api credentials') || m.includes('api key')) return msg;
+    if (m.includes('unlock your wallet') || (m.includes('usdc') && m.includes('trustline'))) return msg;
     return msg;
 }
 
 export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPanelProps) {
+    const { ensureUsdcReady, walletCustody } = useWallet();
+    const { walletReady } = useRequireWalletUnlocked();
     const { market, rates: marketRates, limits, formatFiat, hasMobileMoney, defaultOperator } = useMarketRates();
     const [asset, setAsset] = useState<'xlm' | 'usdc'>('xlm');
     const [amount, setAmount] = useState('500');
@@ -33,12 +54,25 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
     const [operator, setOperator] = useState<MobileOperatorId>(defaultOperator);
     const [showDetails, setShowDetails] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isPreparingUsdc, setIsPreparingUsdc] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
+    const [trackingRef, setTrackingRef] = useState<string | null>(null);
+    const [depositStep, setDepositStep] = useState<DepositTrackStep>('awaiting_approval');
+    const [activationFiat, setActivationFiat] = useState(0);
+    const [activationXlm, setActivationXlm] = useState(0);
 
     const rates = marketRates ?? DEFAULT_RATES;
     const rate = rates[asset].buy;
     const cryptoAmount = Number(amount || 0) / rate;
+    const isTracking = Boolean(trackingRef);
+
+    const runUsdcPrep = useCallback(async () => {
+        await prepareUsdcWallet({
+            ensureUsdcReady,
+            walletReady,
+            allowDeferredActivation: true,
+        }).catch(() => {});
+    }, [ensureUsdcReady, walletReady]);
 
     useEffect(() => {
         setOperator(defaultOperator);
@@ -60,6 +94,88 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
             })
             .catch(() => {});
     }, [market.countryCode, market.mobileOperators]);
+
+    useEffect(() => {
+        if (asset !== 'usdc') {
+            setActivationFiat(0);
+            setActivationXlm(0);
+            return;
+        }
+        fetch('/api/deposit/activation?asset=usdc')
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                const a = data?.activation;
+                if (a?.required) {
+                    setActivationFiat(Number(a.fiat) || 0);
+                    setActivationXlm(Number(a.xlm) || 0);
+                } else {
+                    setActivationFiat(0);
+                    setActivationXlm(0);
+                }
+            })
+            .catch(() => {});
+    }, [asset, walletReady]);
+
+    useEffect(() => {
+        if (asset !== 'usdc' || !walletReady || activationFiat > 0) return;
+        runUsdcPrep();
+    }, [asset, walletReady, runUsdcPrep, activationFiat]);
+
+    useEffect(() => {
+        if (!trackingRef) return;
+        let cancelled = false;
+        let tries = 0;
+
+        const tick = async () => {
+            if (cancelled) return;
+            tries += 1;
+            try {
+                const res = await fetch('/api/deposit/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reference: trackingRef }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                const next = mapConfirmToDepositStep(data);
+                if (!next) {
+                    // keep polling
+                } else if (next === 'complete') {
+                    setDepositStep('complete');
+                    clearActiveDeposit();
+                    onSuccess?.();
+                    return;
+                } else if (next === 'failed') {
+                    setDepositStep('failed');
+                    setError(depositFailureCopy(data));
+                    clearActiveDeposit();
+                    return;
+                } else {
+                    setDepositStep(next);
+                    if ((next === 'waiting_trustline' || next === 'crediting') && asset === 'usdc') {
+                        runUsdcPrep();
+                    }
+                }
+            } catch {
+                // keep polling
+            }
+            if (!cancelled && tries < 90) {
+                setTimeout(tick, 3000);
+            }
+        };
+
+        tick();
+        return () => {
+            cancelled = true;
+        };
+    }, [trackingRef, asset, onSuccess, runUsdcPrep]);
+
+    const resetTracking = () => {
+        setTrackingRef(null);
+        setDepositStep('awaiting_approval');
+        setError('');
+        clearActiveDeposit();
+    };
 
     const handleSubmit = async () => {
         const amountNum = Number(amount);
@@ -90,6 +206,11 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
         setError('');
 
         try {
+            if (asset === 'usdc') {
+                setIsPreparingUsdc(true);
+                await runUsdcPrep();
+            }
+
             const res = await fetch('/api/buy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -97,10 +218,19 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
             });
             const data = await res.json();
 
-            if (res.ok && data.success !== false) {
-                setSuccess(true);
-                onSuccess?.();
-                setTimeout(() => setSuccess(false), 4000);
+            if (res.ok && data.success !== false && typeof data.reference === 'string') {
+                setDepositStep('awaiting_approval');
+                setTrackingRef(data.reference);
+                saveActiveDeposit({
+                    reference: data.reference,
+                    asset,
+                    amount: amountNum,
+                    phone,
+                    operator,
+                    cryptoAmount: amountNum / rate,
+                    activationFiat,
+                    activationXlm,
+                });
             } else {
                 setError(toFriendlyDepositError(data.error, res.status));
             }
@@ -108,8 +238,51 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
             setError('Could not reach our servers. Please try again.');
         } finally {
             setIsLoading(false);
+            setIsPreparingUsdc(false);
         }
     };
+
+    if (isTracking) {
+        return (
+            <div className={`${dash.panelPadding} ${className}`}>
+                <DepositStatusTracker
+                    step={depositStep}
+                    asset={asset}
+                    reference={trackingRef || undefined}
+                    errorMessage={depositStep === 'failed' ? error : undefined}
+                    compact
+                />
+                {asset === 'usdc' &&
+                    (depositStep === 'waiting_trustline' || depositStep === 'crediting') &&
+                    walletCustody === 'self' &&
+                    !walletReady && (
+                        <div className="mt-3">
+                            <WalletGateInline
+                                message="Your payment succeeded. Unlock your wallet to receive USDC."
+                                ctaLabel="Unlock to receive USDC"
+                            />
+                        </div>
+                    )}
+                <div className="mt-4">
+                    {depositStep === 'failed' ? (
+                        <button type="button" onClick={resetTracking} className={dash.ctaFull}>
+                            Try again
+                        </button>
+                    ) : depositStep === 'complete' ? (
+                        <button type="button" onClick={resetTracking} className={dash.ctaFull}>
+                            Deposit more
+                        </button>
+                    ) : (
+                        <p className="text-center text-[0.6875rem] text-white/35">
+                            Approve on your phone — we update this status automatically.
+                        </p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    const chargeTotal = Number(amount || 0) + (asset === 'usdc' ? activationFiat : 0);
 
     return (
         <div className={`${dash.panelPadding} ${className}`}>
@@ -123,11 +296,6 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
             {error && (
                 <Message variant="warning" title="Notice" dark className="mb-3 !p-2.5">
                     {error}
-                </Message>
-            )}
-            {success && (
-                <Message variant="success" title="Request sent" dark className="mb-3 !p-2.5">
-                    Approve the payment on your phone to complete.
                 </Message>
             )}
 
@@ -144,7 +312,10 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
                     <input
                         type="number"
                         value={amount}
-                        onChange={(e) => { setAmount(e.target.value); setError(''); }}
+                        onChange={(e) => {
+                            setAmount(e.target.value);
+                            setError('');
+                        }}
                         className="w-24 border-0 bg-transparent text-right text-lg font-bold text-white tabular-nums outline-none focus:ring-0"
                         placeholder="0.00"
                         min={limits.minDeposit}
@@ -169,13 +340,22 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
                             </select>
                             <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/35" />
                         </div>
-                        <p className="mt-1 text-xs text-white/35">1 {asset.toUpperCase()} ≈ {rate.toFixed(2)} {market.currency}</p>
+                        <p className="mt-1 text-xs text-white/35">
+                            1 {asset.toUpperCase()} ≈ {rate.toFixed(2)} {market.currency}
+                        </p>
                     </div>
                     <span className="text-lg font-bold text-white tabular-nums">
                         {cryptoAmount > 0 ? cryptoAmount.toFixed(2) : '0.00'}
                     </span>
                 </div>
             </div>
+
+            {asset === 'usdc' && activationFiat > 0 && (
+                <p className={`${dash.hint} mb-3 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2`}>
+                    + {formatFiat(activationFiat)} one-time network setup (~{activationXlm.toFixed(2)} XLM stays in
+                    wallet). Total charge: {formatFiat(chargeTotal)}
+                </p>
+            )}
 
             {hasMobileMoney && (showDetails || !phone) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
@@ -215,9 +395,22 @@ export function DepositQuickPanel({ onSuccess, className = '' }: DepositQuickPan
                 </button>
             )}
 
+            {isPreparingUsdc && (
+                <p className={`${dash.hint} mb-3 flex items-center gap-2`}>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparing your USDC wallet…
+                </p>
+            )}
+
             <button type="button" onClick={handleSubmit} disabled={isLoading} className={dash.ctaFull}>
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isLoading ? 'Processing…' : 'Confirm deposit'}
+                {isLoading
+                    ? isPreparingUsdc
+                        ? 'Preparing wallet…'
+                        : 'Sending request…'
+                    : activationFiat > 0
+                      ? `Confirm · ${formatFiat(chargeTotal)}`
+                      : 'Confirm deposit'}
             </button>
         </div>
     );

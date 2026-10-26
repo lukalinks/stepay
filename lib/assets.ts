@@ -1,13 +1,15 @@
-export type AssetCode = 'xlm' | 'usdc';
+export type AssetCode = 'xlm' | 'usdc' | 'usdt0';
 
 const ASSET_META: Record<AssetCode, { src: string; label: string }> = {
     xlm: { src: '/assets/xlm.svg', label: 'XLM' },
     usdc: { src: '/assets/usdc.svg', label: 'USDC' },
+    usdt0: { src: '/assets/usdt0.svg', label: 'USDT0' },
 };
 
 /** Normalize API / form values (xlm, usdc, usd, XLM, …) to a supported asset code. */
 export function normalizeAsset(asset: string): AssetCode {
     const a = asset.toLowerCase();
+    if (a === 'usdt0' || a === 'usdt') return 'usdt0';
     if (a === 'usdc' || a === 'usd') return 'usdc';
     return 'xlm';
 }

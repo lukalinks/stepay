@@ -1,5 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { USDC_ISSUER, MIN_XLM_FOR_USDC_TRUSTLINE, MIN_XLM_NEW_ACCOUNT_FOR_USDC } from './constants';
+import { USDC_ISSUER, USDT0_ISSUER, MIN_XLM_FOR_USDC_TRUSTLINE, MIN_XLM_NEW_ACCOUNT_FOR_USDC } from './constants';
 import { parseStellarError } from './stellar-error';
 
 const HORIZON_URL = 'https://horizon.stellar.org';
@@ -11,6 +11,45 @@ const MIN_ACCOUNT_BALANCE = '1';
 
 /** USDC asset on Stellar mainnet (Circle) */
 const USDC_ASSET = new StellarSdk.Asset('USDC', USDC_ISSUER);
+
+/** USDT0 asset on Stellar mainnet (Tether) */
+const USDT0_ASSET = new StellarSdk.Asset('USDT0', USDT0_ISSUER);
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStellarError(err: unknown): boolean {
+    const parsed = parseStellarError(err).toLowerCase();
+    const raw = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    const status = String((err as { response?: { status?: number } })?.response?.status ?? '');
+    const msg = `${parsed} ${raw} ${status}`;
+    return (
+        msg.includes('sequence conflict') ||
+        msg.includes('tx_bad_seq') ||
+        msg.includes('504') ||
+        msg.includes('502') ||
+        msg.includes('503') ||
+        msg.includes('timeout') ||
+        msg.includes('econnreset') ||
+        msg.includes('network') ||
+        msg.includes('try again')
+    );
+}
+
+async function withStellarRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+    let lastError: unknown;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err;
+            if (!isRetryableStellarError(err) || i >= attempts - 1) break;
+            await sleep(1200 * (i + 1));
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error(parseStellarError(lastError));
+}
 
 export class StellarService {
     /**
@@ -59,7 +98,10 @@ export class StellarService {
         try {
             const account = await server.loadAccount(publicKey);
             const usdcBalance = account.balances.find(
-                (b) => b.asset_type === 'credit_alphanum4' && (b as { asset_code?: string }).asset_code === 'USDC'
+                (b) =>
+                    b.asset_type === 'credit_alphanum4' &&
+                    (b as { asset_code?: string }).asset_code === 'USDC' &&
+                    (b as { asset_issuer?: string }).asset_issuer === USDC_ISSUER
             );
             return usdcBalance ? usdcBalance.balance : '0';
         } catch (error) {
@@ -67,18 +109,62 @@ export class StellarService {
         }
     }
 
+    /** USDT0 balance. Returns 0 when the account has no trustline yet. */
+    static async getUSDT0Balance(publicKey: string): Promise<string> {
+        try {
+            const account = await server.loadAccount(publicKey);
+            const row = account.balances.find(
+                (b) =>
+                    b.asset_type === 'credit_alphanum4' &&
+                    (b as { asset_code?: string }).asset_code === 'USDT0' &&
+                    (b as { asset_issuer?: string }).asset_issuer === USDT0_ISSUER
+            );
+            return row ? row.balance : '0';
+        } catch {
+            return '0';
+        }
+    }
+
+    static async hasUSDT0Trustline(publicKey: string): Promise<boolean> {
+        try {
+            const account = await server.loadAccount(publicKey);
+            return account.balances.some(
+                (b) =>
+                    b.asset_type === 'credit_alphanum4' &&
+                    (b as { asset_code?: string }).asset_code === 'USDT0' &&
+                    (b as { asset_issuer?: string }).asset_issuer === USDT0_ISSUER
+            );
+        } catch {
+            return false;
+        }
+    }
+
     /**
-     * Check if account has USDC trustline
+     * Check if account has USDC trustline (Circle issuer on mainnet).
      */
     static async hasUSDCTrustline(publicKey: string): Promise<boolean> {
         try {
             const account = await server.loadAccount(publicKey);
             return account.balances.some(
-                (b) => b.asset_type === 'credit_alphanum4' && (b as { asset_code?: string }).asset_code === 'USDC'
+                (b) =>
+                    b.asset_type === 'credit_alphanum4' &&
+                    (b as { asset_code?: string }).asset_code === 'USDC' &&
+                    (b as { asset_issuer?: string }).asset_issuer === USDC_ISSUER
             );
         } catch {
             return false;
         }
+    }
+
+    /** Poll Horizon until USDC trustline appears (e.g. after client-side changeTrust). */
+    static async waitForUSDCTrustline(publicKey: string, attempts = 6, delayMs = 2000): Promise<boolean> {
+        for (let i = 0; i < attempts; i++) {
+            if (await this.hasUSDCTrustline(publicKey)) return true;
+            if (i < attempts - 1) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+        }
+        return false;
     }
 
     /**
@@ -108,42 +194,75 @@ export class StellarService {
         const hasTrust = await this.hasUSDCTrustline(keypair.publicKey());
         if (hasTrust) return;
 
-        const sourceAccount = await server.loadAccount(keypair.publicKey());
-        const tx = new StellarSdk.TransactionBuilder(sourceAccount, { fee: '100', networkPassphrase })
-            .addOperation(StellarSdk.Operation.changeTrust({ asset: USDC_ASSET, limit: '1000000' }))
-            .setTimeout(30)
-            .build();
-        tx.sign(keypair);
-        await server.submitTransaction(tx);
+        await withStellarRetry(async () => {
+            const stillHas = await this.hasUSDCTrustline(keypair.publicKey());
+            if (stillHas) return;
+            const sourceAccount = await server.loadAccount(keypair.publicKey());
+            const tx = new StellarSdk.TransactionBuilder(sourceAccount, { fee: '100', networkPassphrase })
+                .addOperation(StellarSdk.Operation.changeTrust({ asset: USDC_ASSET, limit: '1000000' }))
+                .setTimeout(30)
+                .build();
+            tx.sign(keypair);
+            await server.submitTransaction(tx);
+        });
     }
 
     /**
      * Sends USDC from source to destination. Dest must have trustline (call ensureUSDCTrustline first if needed).
      */
     static async sendUSDC(sourceSecret: string, destAddress: string, amount: string, memo?: string): Promise<string> {
-        const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-        const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+        return withStellarRetry(async () => {
+            const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
+            const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
 
-        const operation = StellarSdk.Operation.payment({
-            destination: destAddress,
-            asset: USDC_ASSET,
-            amount: String(amount),
+            const operation = StellarSdk.Operation.payment({
+                destination: destAddress,
+                asset: USDC_ASSET,
+                amount: String(amount),
+            });
+
+            let txBuilder = new StellarSdk.TransactionBuilder(sourceAccount, { fee: '100', networkPassphrase })
+                .addOperation(operation)
+                .setTimeout(30);
+
+            if (memo) {
+                txBuilder = txBuilder.addMemo(StellarSdk.Memo.text(memo));
+            }
+
+            const transaction = txBuilder.build();
+            transaction.sign(sourceKeypair);
+
+            const result = await server.submitTransaction(transaction);
+            console.log('Stellar USDC Transaction Success:', result.hash);
+            return result.hash;
         });
+    }
 
-        let txBuilder = new StellarSdk.TransactionBuilder(sourceAccount, { fee: '100', networkPassphrase })
-            .addOperation(operation)
-            .setTimeout(30);
+    /** Send USDT0. The destination must already trust USDT0. */
+    static async sendUSDT0(sourceSecret: string, destAddress: string, amount: string, memo?: string): Promise<string> {
+        return withStellarRetry(async () => {
+            const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
+            const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
 
-        if (memo) {
-            txBuilder = txBuilder.addMemo(StellarSdk.Memo.text(memo));
-        }
+            const operation = StellarSdk.Operation.payment({
+                destination: destAddress,
+                asset: USDT0_ASSET,
+                amount: String(amount),
+            });
 
-        const transaction = txBuilder.build();
-        transaction.sign(sourceKeypair);
+            let txBuilder = new StellarSdk.TransactionBuilder(sourceAccount, { fee: '100', networkPassphrase })
+                .addOperation(operation)
+                .setTimeout(30);
 
-        const result = await server.submitTransaction(transaction);
-        console.log('Stellar USDC Transaction Success:', result.hash);
-        return result.hash;
+            if (memo) {
+                txBuilder = txBuilder.addMemo(StellarSdk.Memo.text(memo));
+            }
+
+            const transaction = txBuilder.build();
+            transaction.sign(sourceKeypair);
+            const result = await server.submitTransaction(transaction);
+            return result.hash;
+        });
     }
 
     /**
@@ -164,47 +283,49 @@ export class StellarService {
      */
     static async sendXLM(sourceSecret: string, destAddress: string, amount: string, memo?: string) {
         try {
-            const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-            const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+            return await withStellarRetry(async () => {
+                const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
+                const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
 
-            const amountNum = parseFloat(amount);
-            const destExists = await this.accountExists(destAddress);
+                const amountNum = parseFloat(amount);
+                const destExists = await this.accountExists(destAddress);
 
-            let operation;
-            if (!destExists) {
-                const startingBalance = Math.max(amountNum, parseFloat(MIN_ACCOUNT_BALANCE)).toFixed(7);
-                if (amountNum < parseFloat(MIN_ACCOUNT_BALANCE)) {
-                    throw new Error(`Minimum ${MIN_ACCOUNT_BALANCE} XLM required to create new account.`);
+                let operation;
+                if (!destExists) {
+                    const startingBalance = Math.max(amountNum, parseFloat(MIN_ACCOUNT_BALANCE)).toFixed(7);
+                    if (amountNum < parseFloat(MIN_ACCOUNT_BALANCE)) {
+                        throw new Error(`Minimum ${MIN_ACCOUNT_BALANCE} XLM required to create new account.`);
+                    }
+                    operation = StellarSdk.Operation.createAccount({
+                        destination: destAddress,
+                        startingBalance,
+                    });
+                } else {
+                    operation = StellarSdk.Operation.payment({
+                        destination: destAddress,
+                        asset: StellarSdk.Asset.native(),
+                        amount: amount,
+                    });
                 }
-                operation = StellarSdk.Operation.createAccount({
-                    destination: destAddress,
-                    startingBalance,
-                });
-            } else {
-                operation = StellarSdk.Operation.payment({
-                    destination: destAddress,
-                    asset: StellarSdk.Asset.native(),
-                    amount: amount,
-                });
-            }
 
-            let transactionBuilder = new StellarSdk.TransactionBuilder(sourceAccount, {
-                fee: '100',
-                networkPassphrase,
-            })
-                .addOperation(operation)
-                .setTimeout(30);
+                let transactionBuilder = new StellarSdk.TransactionBuilder(sourceAccount, {
+                    fee: '100',
+                    networkPassphrase,
+                })
+                    .addOperation(operation)
+                    .setTimeout(30);
 
-            if (memo) {
-                transactionBuilder.addMemo(StellarSdk.Memo.text(memo));
-            }
+                if (memo) {
+                    transactionBuilder.addMemo(StellarSdk.Memo.text(memo));
+                }
 
-            const transaction = transactionBuilder.build();
-            transaction.sign(sourceKeypair);
+                const transaction = transactionBuilder.build();
+                transaction.sign(sourceKeypair);
 
-            const result = await server.submitTransaction(transaction);
-            console.log('Stellar Transaction Success:', result.hash);
-            return result.hash;
+                const result = await server.submitTransaction(transaction);
+                console.log('Stellar Transaction Success:', result.hash);
+                return result.hash;
+            });
         } catch (error: unknown) {
             console.error('Stellar Transaction Failed:', error);
             throw new Error(parseStellarError(error));

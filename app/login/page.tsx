@@ -15,11 +15,15 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { accentLinkSx, authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
 import { hasLocalWallet, removeLocalWallet, setWalletUnlockHint, unlockLocalWallet } from '@/lib/client-wallet';
 import { syncClientAccountSession } from '@/lib/client-account-sync';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { safeInternalPath } from '@/lib/safe-redirect';
+import { useSearchParams } from 'next/navigation';
 
 function toFriendlyAuthError(msg?: string, action: string = 'sign in'): string {
     if (!msg) return `We couldn't ${action}. Please try again.`;
     const m = msg.toLowerCase();
+    if (m === 'session' || m.includes('error=session')) {
+        return 'Your session did not stick after signup. Sign in with the same email and password — your wallet on this device was kept.';
+    }
     if (m.includes('invalid') && (m.includes('credentials') || m.includes('email') || m.includes('password'))) return 'Invalid email or password. Please check and try again.';
     if (m.includes('user not found') || m.includes('email not found')) return 'We don\'t have an account with that email. Try signing up first.';
     if (m.includes('unauthorized')) return 'Your session may have expired. Please sign in again.';
@@ -42,7 +46,6 @@ function UserLoginForm({
     messageParam: string | null;
     initialEmail: string;
 }) {
-    const router = useRouter();
     const [email, setEmail] = useState(initialEmail);
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -80,8 +83,8 @@ function UserLoginForm({
                         );
                     }
                 }
-                const target = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
-                window.location.href = target;
+                // Full page load avoids soft-nav ChunkLoadError after a fresh deploy.
+                window.location.assign(safeInternalPath(redirectTo, '/dashboard'));
                 return;
             } else {
                 setError(toFriendlyAuthError(data.error, 'sign in'));
@@ -169,14 +172,14 @@ function UserLoginForm({
 
 function LoginForm() {
     const searchParams = useSearchParams();
-    const redirectTo = searchParams.get('next') || '/dashboard';
+    const redirectTo = safeInternalPath(searchParams.get('next'), '/dashboard');
     const errorParam = searchParams.get('error');
     const messageParam = searchParams.get('message');
     const initialEmail = searchParams.get('email')?.trim() ?? '';
     const [isAdminHost] = useState(() => isAdminLoginHostClient());
 
     if (isAdminHost) {
-        return <AdminLoginForm redirectTo={redirectTo.startsWith('/') ? redirectTo : '/admin'} />;
+        return <AdminLoginForm redirectTo={safeInternalPath(searchParams.get('next'), '/admin')} />;
     }
 
     return (

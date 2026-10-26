@@ -22,7 +22,12 @@ export async function GET(request: Request) {
         const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const pendingTxs = await sql`
             SELECT reference FROM transactions
-            WHERE type = 'BUY' AND status = 'PENDING' AND created_at >= ${since}
+            WHERE type = 'BUY'
+              AND created_at >= ${since}
+              AND (
+                status IN ('PENDING', 'PROCESSING')
+                OR (status = 'FAILED' AND tx_hash IS NULL)
+              )
             ORDER BY created_at ASC
             LIMIT 20
         `;

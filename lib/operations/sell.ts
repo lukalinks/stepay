@@ -5,6 +5,7 @@ import { parseStellarError } from '@/lib/stellar-error';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { cryptoToZmw, getFees, getLimits, getRates } from '@/lib/rates';
 import { sendPushNotification } from '@/lib/push';
+import { notifySellPayout } from '@/lib/notifications';
 import { auditSign, assertDailySignLimit, clientIp, getUserWalletSecret } from '@/lib/signer';
 import { formatPhoneE164ForMarket, isValidPhoneForMarket } from '@/lib/phone';
 import { parsePositiveDecimalOrThrow } from '@/lib/parse-amount';
@@ -12,6 +13,7 @@ import { coerceIntentPayload } from '@/lib/intent-payload';
 import { randomInt } from 'crypto';
 import { verifyOutgoingPayment } from '@/lib/stellar-tx-verify';
 import type { ClientPaymentPlan } from '@/lib/client-stellar';
+import { assertLencoPayoutAvailable } from '@/lib/liquidity';
 
 export type SellPayload = {
     amount: number;
@@ -76,6 +78,9 @@ export async function validateSell(userId: string, payload: SellPayload) {
         throw new Error(`Maximum ${limits.max_withdraw_zmw} ZMW per withdrawal.`);
     }
 
+    // Do not take the user's crypto unless Lenco can pay out ZMW.
+    await assertLencoPayoutAvailable(amountFiat);
+
     return { user, amountFiat, phone, assetLabel };
 }
 
@@ -87,6 +92,9 @@ export async function executeSell(
     await assertDailySignLimit(userId);
     const { user, amountFiat, phone, assetLabel } = await validateSell(userId, payload);
     const ip = clientIp(opts.request);
+
+    // Re-check immediately before moving crypto (float can change after intent).
+    await assertLencoPayoutAvailable(amountFiat);
 
     const depositMemo = String(randomInt(100000, 1000000));
     const reference = `SELL-${Date.now()}`;
@@ -129,11 +137,15 @@ export async function executeSell(
             message = `Sold ${payload.amount} ${assetLabel}! ZMW ${amountFiat.toFixed(2)} is being sent to ${phone}. Funds typically arrive within a few minutes.`;
         } catch (payoutErr: unknown) {
             const errMsg = payoutErr instanceof Error ? payoutErr.message : 'Payout failed';
-            await sql`UPDATE transactions SET status = 'COMPLETED', tx_hash = ${txHash} WHERE id = ${txRecord.id}`;
+            await sql`
+                UPDATE transactions
+                SET status = 'PAYOUT_FAILED', tx_hash = ${txHash}, updated_at = NOW()
+                WHERE id = ${txRecord.id}
+            `;
             await auditSign({ userId, reason: 'sell', intentId: opts.intentId, txHash, ip });
             return {
                 success: true as const,
-                message: `${payload.amount} ${assetLabel} sold. ZMW ${amountFiat.toFixed(2)} payout failed: ${errMsg}. Contact support with ref: ${reference}.`,
+                message: `${payload.amount} ${assetLabel} received. ZMW payout failed (${errMsg}). We will retry — ref: ${reference}.`,
                 amountFiat,
                 txHash,
             };
@@ -157,6 +169,14 @@ export async function executeSell(
         ).catch(() => {});
     }
 
+    notifySellPayout({
+        phone,
+        amountCrypto: payload.amount,
+        assetLabel,
+        amountFiat,
+        reference,
+    }).catch(() => {});
+
     return { success: true as const, message, amountFiat, txHash };
 }
 
@@ -168,6 +188,9 @@ export type SellClientPlan = ClientPaymentPlan & {
 
 export async function buildSellClientPlan(userId: string, payload: SellPayload): Promise<SellClientPlan> {
     const { amountFiat } = await validateSell(userId, payload);
+    // Final float check before the user is asked to send crypto.
+    await assertLencoPayoutAvailable(amountFiat);
+
     const depositMemo = String(randomInt(100000, 1000000));
     const reference = `SELL-${Date.now()}`;
 
@@ -252,11 +275,15 @@ export async function finalizeSellClientTx(
             message = `Sold ${payload.amount} ${assetLabel}! ZMW ${amountFiat.toFixed(2)} is being sent to ${phone}. Funds typically arrive within a few minutes.`;
         } catch (payoutErr: unknown) {
             const errMsg = payoutErr instanceof Error ? payoutErr.message : 'Payout failed';
-            await sql`UPDATE transactions SET status = 'COMPLETED', tx_hash = ${txHash} WHERE id = ${clientPlan.txRecordId}`;
+            await sql`
+                UPDATE transactions
+                SET status = 'PAYOUT_FAILED', tx_hash = ${txHash}, updated_at = NOW()
+                WHERE id = ${clientPlan.txRecordId}
+            `;
             await auditSign({ userId, reason: 'sell', intentId: opts.intentId, txHash, ip });
             return {
                 success: true,
-                message: `${payload.amount} ${assetLabel} sold. ZMW ${amountFiat.toFixed(2)} payout failed: ${errMsg}. Contact support with ref: ${reference}.`,
+                message: `${payload.amount} ${assetLabel} received. ZMW payout failed (${errMsg}). We will retry — ref: ${reference}.`,
                 amountFiat,
                 txHash,
             };

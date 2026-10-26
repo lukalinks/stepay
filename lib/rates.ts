@@ -1,9 +1,10 @@
 /**
- * Platform rates and fees - reads from DB (platform_settings) with env fallback.
- * Admin can update via /api/admin/settings.
+ * Platform rates and fees — live market rates by default, DB/env as fallback.
+ * Admin can update manual fallback rates via /api/admin/settings.
  */
 
 import { sql } from './db';
+import { fetchLivePlatformRates, invalidateLiveRatesCache, liveRatesEnabled } from './live-rates';
 
 export interface PlatformRates {
   xlm_buy: number;   // ZMW per 1 XLM (user pays ZMW, gets XLM)
@@ -47,7 +48,8 @@ let cachedRates: PlatformRates | null = null;
 let cachedFees: PlatformFees | null = null;
 let cachedLimits: PlatformLimits | null = null;
 let cacheExpiry = 0;
-// Short TTL so admin changes propagate across Vercel serverless instances (each has its own cache)
+let ratesSource: 'live' | 'manual' = 'manual';
+// Short TTL so admin changes / live ticks propagate across instances
 const CACHE_MS = 2_000; // 2 sec
 
 async function fetchFromDb<T>(key: string, defaultVal: T): Promise<T> {
@@ -69,9 +71,25 @@ export async function getRates(): Promise<PlatformRates> {
   if (cachedRates && Date.now() < cacheExpiry) {
     return cachedRates;
   }
+
+  if (liveRatesEnabled()) {
+    const live = await fetchLivePlatformRates();
+    if (live) {
+      cachedRates = live;
+      ratesSource = 'live';
+      cacheExpiry = Date.now() + CACHE_MS;
+      return cachedRates;
+    }
+  }
+
   cachedRates = await fetchFromDb<PlatformRates>('rates', DEFAULT_RATES);
+  ratesSource = 'manual';
   cacheExpiry = Date.now() + CACHE_MS;
   return cachedRates;
+}
+
+export function getRatesSource(): 'live' | 'manual' {
+  return ratesSource;
 }
 
 export async function getFees(): Promise<PlatformFees> {
@@ -95,6 +113,8 @@ export function invalidateRatesCache() {
   cachedFees = null;
   cachedLimits = null;
   cacheExpiry = 0;
+  ratesSource = 'manual';
+  invalidateLiveRatesCache();
 }
 
 /** For buy: ZMW → crypto. Accounts for buy fee if any. */

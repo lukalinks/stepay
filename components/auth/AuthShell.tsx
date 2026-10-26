@@ -9,6 +9,7 @@ import Container from '@mui/material/Container';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { BackButton } from '@/components/BackButton';
 import { Logo } from '@/components/Logo';
 import { AuthModeTabs } from '@/components/auth/AuthModeTabs';
 import { BRAND, glassCardSx } from '@/lib/brand';
@@ -59,13 +60,7 @@ function AuthShellInner({ mode, title, subtitle, children, footer }: AuthShellPr
           <Button component={Link} href="/" sx={{ p: 0, minWidth: 0, color: '#fff', '&:hover': { bgcolor: 'transparent', opacity: 0.9 } }}>
             <Logo iconOnly={false} size="md" variant="neon" className="text-white" />
           </Button>
-          <Button
-            component={Link}
-            href="/"
-            sx={{ color: BRAND.textMuted, fontWeight: 500, textTransform: 'none', borderRadius: 999, px: 2, '&:hover': { color: '#fff', bgcolor: alpha('#fff', 0.06) } }}
-          >
-            ← Home
-          </Button>
+          <BackButton href="/" label="Home" variant="dark" />
         </Stack>
       </Box>
 

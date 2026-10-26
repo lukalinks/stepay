@@ -11,11 +11,13 @@ export async function GET(request: Request) {
 
     try {
         const { searchParams } = new URL(request.url);
-        const unresolvedOnly = searchParams.get('unresolved') === 'true';
+        // Default: unresolved only (pass unresolved=false for all)
+        const unresolvedOnly = searchParams.get('unresolved') !== 'false';
 
         const alerts = unresolvedOnly
             ? await sql`
-                SELECT a.*, u.email AS user_email
+                SELECT a.id, a.user_id, a.alert_type, a.severity, a.message, a.metadata,
+                       a.resolved, a.created_at, u.email AS user_email
                 FROM compliance_alerts a
                 LEFT JOIN users u ON u.id = a.user_id
                 WHERE a.resolved = false
@@ -23,7 +25,8 @@ export async function GET(request: Request) {
                 LIMIT 100
               `
             : await sql`
-                SELECT a.*, u.email AS user_email
+                SELECT a.id, a.user_id, a.alert_type, a.severity, a.message, a.metadata,
+                       a.resolved, a.created_at, u.email AS user_email
                 FROM compliance_alerts a
                 LEFT JOIN users u ON u.id = a.user_id
                 ORDER BY a.created_at DESC
@@ -46,11 +49,17 @@ export async function GET(request: Request) {
             WHERE created_at >= NOW() - INTERVAL '24 hours' AND status = 'COMPLETED'
         `;
 
+        const unresolvedCount = await sql`
+            SELECT COUNT(*)::int AS c FROM compliance_alerts WHERE resolved = false
+        `;
+
         return NextResponse.json({
             alerts,
             tierStats,
             pendingPhoneTransfers: (pendingPhone[0] as { c: number })?.c ?? 0,
             last24h: volume24h[0],
+            unresolvedCount: (unresolvedCount[0] as { c: number })?.c ?? 0,
+            unresolvedOnly,
         });
     } catch (err) {
         console.error('Admin compliance GET:', err);
@@ -67,16 +76,29 @@ export async function PATCH(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));
         const alertId = typeof body.alertId === 'string' ? body.alertId : '';
+        const note = typeof body.note === 'string' ? body.note.trim().slice(0, 500) : '';
         if (!alertId) {
             return NextResponse.json({ error: 'alertId required' }, { status: 400 });
         }
 
-        await sql`UPDATE compliance_alerts SET resolved = true WHERE id = ${alertId}`;
+        const metaPatch = JSON.stringify({
+            resolve_note: note || null,
+            resolved_by: ctx.userId,
+            resolved_at: new Date().toISOString(),
+        });
+
+        await sql`
+            UPDATE compliance_alerts
+            SET resolved = true,
+                metadata = COALESCE(metadata, '{}'::jsonb) || ${metaPatch}::jsonb
+            WHERE id = ${alertId}
+        `;
         await logAdminAction({
             adminUserId: ctx.userId,
             action: 'compliance.resolve_alert',
             targetType: 'compliance_alert',
             targetId: alertId,
+            details: { note: note || undefined },
             ip: ctx.ip,
         });
         return NextResponse.json({ success: true });

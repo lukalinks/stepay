@@ -50,25 +50,32 @@ export default function DashboardPage() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    const hasPending = data?.transactions?.some(
-        (tx: { type: string; status: string }) => tx.type === 'BUY' && tx.status === 'PENDING'
-    );
+    const hasActiveBuy = data?.transactions?.some((tx: { type: string; status: string }) => {
+        const s = (tx.status || '').toUpperCase();
+        return tx.type === 'BUY' && (s === 'PENDING' || s === 'PROCESSING');
+    });
 
     const confirmPendingDeposits = useCallback(() => {
+        fetch('/api/deposit/retry-pending', { method: 'POST' }).catch(() => {});
         fetch('/api/deposit/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((res) => (res.ok ? res.json() : null))
             .then((json) => {
-                if (json?.completed > 0) fetchData();
+                if (!json) return;
+                const completed =
+                    (json.completed ?? 0) > 0 ||
+                    (Array.isArray(json.results) &&
+                        json.results.some((r: { status?: string }) => r.status === 'completed'));
+                if (completed) fetchData();
             })
             .catch(() => {});
     }, [fetchData]);
 
     useEffect(() => {
-        if (!hasPending) return;
+        if (!hasActiveBuy) return;
         confirmPendingDeposits();
-        const id = setInterval(confirmPendingDeposits, 10000);
+        const id = setInterval(confirmPendingDeposits, 5000);
         return () => clearInterval(id);
-    }, [hasPending, confirmPendingDeposits]);
+    }, [hasActiveBuy, confirmPendingDeposits]);
 
     if (loading) {
         return (
@@ -97,12 +104,36 @@ export default function DashboardPage() {
     const localCurrency = data.user?.currency ?? 'ZMW';
     const portfolio =
         Number(data.balance.xlmLocalEquiv ?? data.balance.xlmZmwEquiv ?? 0) +
-        Number(data.balance.usdcLocalEquiv ?? data.balance.usdcZmwEquiv ?? 0);
+        Number(data.balance.usdcLocalEquiv ?? data.balance.usdcZmwEquiv ?? 0) +
+        Number(data.balance.usdt0LocalEquiv ?? 0);
     const todayChange = computeTodayChange(data.transactions ?? [], portfolio);
+
+    const activeBuy = (data.transactions ?? []).find((tx: { type: string; status: string; asset?: string }) => {
+        const s = (tx.status || '').toUpperCase();
+        return tx.type === 'BUY' && (s === 'PENDING' || s === 'PROCESSING');
+    }) as { status?: string; asset?: string } | undefined;
 
     return (
         <div className={dash.pageWrap}>
             <div className={dash.sectionGap}>
+            {activeBuy && (
+                <Link
+                    href="/dashboard/buy"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--brand-accent)]/25 bg-[var(--brand-accent)]/[0.08] px-4 py-3 transition hover:bg-[var(--brand-accent)]/[0.12]"
+                >
+                    <div>
+                        <p className="text-sm font-semibold text-white">
+                            {(activeBuy.status || '').toUpperCase() === 'PROCESSING'
+                                ? activeBuy.asset === 'usdc'
+                                    ? 'Finishing your USDC deposit…'
+                                    : 'Sending crypto to your wallet…'
+                                : 'Waiting for mobile money approval…'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-white/45">Tap to view live status. We keep retrying in the background.</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-semibold text-[var(--brand-accent)]">View</span>
+                </Link>
+            )}
             <div className={`${dash.panel} overflow-hidden`}>
                 <div className="grid lg:grid-cols-[1fr_260px]">
                     <WalletOverview

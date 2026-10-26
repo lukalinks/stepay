@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, ArrowDownLeft, ArrowDownUp, Send, ChevronDown, ChevronUp, ExternalLink, Copy } from 'lucide-react';
+import { formatTxStatus, formatTxType } from '@/lib/tx-status';
 
 export type TxRow = {
     id: string;
@@ -15,17 +16,6 @@ export type TxRow = {
     createdAt: string;
     depositMemo?: string;
 };
-
-function formatStatus(status: string, type?: string): string {
-    const s = (status || '').toUpperCase();
-    if (s === 'COMPLETED') return 'Completed';
-    if (s === 'FAILED') return 'Failed';
-    if (s === 'PROCESSING') return 'Processing';
-    if (s === 'PENDING' && type === 'BUY') return 'Awaiting payment';
-    if (s === 'PENDING' && type === 'SWAP') return 'Processing';
-    if (s === 'PENDING') return 'Pending';
-    return status || 'Pending';
-}
 
 function formatCryptoAmount(amount: number, asset: string): string {
     const n = Number(amount) || 0;
@@ -59,12 +49,19 @@ const amountColor = {
     SWAP: 'text-sky-300',
 };
 
-const statusStyles = (status: string) =>
-    status === 'COMPLETED'
-        ? 'text-[var(--brand-accent)]'
-        : status === 'FAILED'
-          ? 'text-red-400'
-          : 'text-amber-400';
+const statusBadgeClass = (status: string) => {
+    const s = (status || '').toUpperCase();
+    if (s === 'COMPLETED') {
+        return 'bg-[var(--brand-accent)]/15 text-[var(--brand-accent)] ring-1 ring-[var(--brand-accent)]/25';
+    }
+    if (s === 'FAILED') {
+        return 'bg-red-500/15 text-red-300 ring-1 ring-red-500/25';
+    }
+    if (s === 'PROCESSING') {
+        return 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/25';
+    }
+    return 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25';
+};
 
 function TxIcon({ type }: { type: string }) {
     const cls = 'h-4 w-4';
@@ -78,19 +75,21 @@ function TxIcon({ type }: { type: string }) {
 export function TransactionRow({ tx }: { tx: TxRow }) {
     const [expanded, setExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
-    const assetLabel = tx.asset === 'usdc' ? 'USDC' : 'XLM';
+    const assetLabel = tx.asset === 'usdc' ? 'USDC' : tx.asset === 'usdt0' ? 'USDT0' : 'XLM';
     const fromAsset = tx.asset === 'usdc' ? 'xlm' : 'usdc';
     const fromAssetLabel = fromAsset === 'usdc' ? 'USDC' : 'XLM';
     const typeLabel =
         tx.type === 'BUY'
-            ? 'Deposited'
+            ? 'Top-up'
             : tx.type === 'RECEIVE'
               ? 'Received'
               : tx.type === 'SEND'
               ? 'Sent'
               : tx.type === 'SWAP'
                 ? 'Swapped'
-                : 'Cashed Out';
+                : tx.type === 'SELL'
+                  ? 'Payout'
+                  : formatTxType(tx.type);
     const typeKey = (tx.type as keyof typeof typeStyles) in typeStyles ? (tx.type as keyof typeof typeStyles) : 'SELL';
 
     const title =
@@ -128,9 +127,13 @@ export function TransactionRow({ tx }: { tx: TxRow }) {
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-snug text-white line-clamp-2 sm:truncate">{title}</p>
-                        <p className="mt-1 text-[0.6875rem] text-white/45 sm:hidden">
-                            {formatDate(tx.createdAt, true)} ·{' '}
-                            <span className={statusStyles(tx.status)}>{formatStatus(tx.status, tx.type)}</span>
+                        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[0.6875rem] text-white/45 sm:hidden">
+                            <span>{formatDate(tx.createdAt, true)}</span>
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-[0.625rem] font-semibold ${statusBadgeClass(tx.status)}`}
+                            >
+                                {formatTxStatus(tx.status, tx.type, tx.asset)}
+                            </span>
                         </p>
                         <p className="mt-1 hidden text-[0.6875rem] text-white/45 sm:block">{formatDate(tx.createdAt)}</p>
                     </div>
@@ -139,9 +142,11 @@ export function TransactionRow({ tx }: { tx: TxRow }) {
                             <p className={`text-sm font-bold tabular-nums ${amountColor[typeKey]}`}>
                                 {tx.type === 'SWAP' ? amountDisplay.replace(/^[+-]/, '') : amountDisplay}
                             </p>
-                            <p className={`mt-0.5 text-[0.6875rem] font-medium ${statusStyles(tx.status)}`}>
-                                {formatStatus(tx.status, tx.type)}
-                            </p>
+                            <span
+                                className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[0.625rem] font-semibold ${statusBadgeClass(tx.status)}`}
+                            >
+                                {formatTxStatus(tx.status, tx.type, tx.asset)}
+                            </span>
                         </div>
                         {expanded ? (
                             <ChevronUp className="h-4 w-4 shrink-0 text-white/35" />

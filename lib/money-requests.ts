@@ -47,7 +47,8 @@ export async function createMoneyRequest(opts: {
     });
 
     const whatsAppUrl = whatsAppShareUrl(
-        `${requesterName} requested ${opts.amount} ${opts.asset.toUpperCase()} on Stepay: ${payUrl}`
+        `${requesterName} requested ${opts.amount} ${opts.asset.toUpperCase()} on Stepay: ${payUrl}`,
+        opts.payerPhone
     );
 
     return { payToken, payUrl, whatsAppUrl };

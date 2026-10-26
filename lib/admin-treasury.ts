@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
 import { probeLencoAuth } from '@/lib/lenco-config';
+import { getLencoAvailableFloat } from '@/lib/liquidity';
 import { StellarService } from '@/lib/stellar';
 
 export async function getTreasurySnapshot(): Promise<{
@@ -16,12 +17,12 @@ export async function getTreasurySnapshot(): Promise<{
 }> {
     const today = new Date().toISOString().slice(0, 10);
 
-    const [xlm, usdc, pendingRows, todayBuy, todaySell, lencoAuth] = await Promise.all([
+    const [xlm, usdc, pendingRows, todayBuy, todaySell, lencoAuth, lencoFloat] = await Promise.all([
         StellarService.getBalance(PLATFORM_WALLET_PUBLIC),
         StellarService.getUSDCBalance(PLATFORM_WALLET_PUBLIC),
         sql`
             SELECT amount_fiat FROM transactions
-            WHERE type = 'SELL' AND status IN ('PENDING', 'PROCESSING')
+            WHERE type = 'SELL' AND status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED')
         `,
         sql`
             SELECT amount_fiat FROM transactions
@@ -32,29 +33,8 @@ export async function getTreasurySnapshot(): Promise<{
             WHERE type = 'SELL' AND status = 'COMPLETED' AND created_at >= ${`${today}T00:00:00`}
         `,
         probeLencoAuth(),
+        getLencoAvailableFloat(),
     ]);
-
-    let lencoFloat: number | null = null;
-    if (lencoAuth.ok) {
-        try {
-            const key = process.env.LENCO_SECRET_KEY?.trim();
-            const url = `${(process.env.LENCO_API_URL || 'https://api.lenco.co/access/v2').trim()}/accounts`;
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
-                signal: AbortSignal.timeout(8000),
-            });
-            const body = await res.json().catch(() => ({}));
-            const accounts = Array.isArray(body?.data) ? body.data : body?.data ? [body.data] : [];
-            const accountId = process.env.LENCO_ACCOUNT_ID?.trim();
-            const match = accountId
-                ? accounts.find((a: { id?: string }) => String(a.id) === accountId)
-                : accounts[0];
-            const bal = match?.availableBalance ?? match?.balance ?? match?.ledgerBalance;
-            if (bal != null) lencoFloat = Number(bal);
-        } catch {
-            // ignore
-        }
-    }
 
     const pending = pendingRows as { amount_fiat?: number }[];
     const pendingPayoutZmw = pending.reduce((s, r) => s + (Number(r.amount_fiat) || 0), 0);

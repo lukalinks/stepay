@@ -2,24 +2,33 @@ import type { NextAuthConfig } from 'next-auth';
 import { authCookieDomain, authSessionCookieName, authUseSecureCookies } from '@/lib/issue-jwt';
 
 const cookieDomain = authCookieDomain();
+const secure = authUseSecureCookies();
+
+/** When sharing cookies across apex/www/admin, never use __Host- (forbids Domain). */
+function sharedCookie(name: string) {
+    return {
+        name,
+        options: {
+            httpOnly: true,
+            sameSite: 'lax' as const,
+            path: '/',
+            secure,
+            ...(cookieDomain ? { domain: cookieDomain } : {}),
+        },
+    };
+}
 
 /**
  * Shared Auth.js config safe for Edge (middleware). No DB/bcrypt — those stay in `auth.ts`.
  */
 export default {
     trustHost: true,
-    useSecureCookies: authUseSecureCookies(),
+    useSecureCookies: secure,
     cookies: {
-        sessionToken: {
-            name: authSessionCookieName(),
-            options: {
-                httpOnly: true,
-                sameSite: 'lax',
-                path: '/',
-                secure: authUseSecureCookies(),
-                ...(cookieDomain ? { domain: cookieDomain } : {}),
-            },
-        },
+        sessionToken: sharedCookie(authSessionCookieName()),
+        // Defaults use __Host- which breaks login across www/apex/admin when AUTH_COOKIE_DOMAIN is set.
+        csrfToken: sharedCookie(secure ? '__Secure-authjs.csrf-token' : 'authjs.csrf-token'),
+        callbackUrl: sharedCookie(secure ? '__Secure-authjs.callback-url' : 'authjs.callback-url'),
     },
     providers: [],
     session: {

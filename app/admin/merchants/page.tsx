@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw, Store } from 'lucide-react';
+import { KeyRound, RefreshCw, ShoppingBag, Store, Webhook } from 'lucide-react';
 import {
     AdminBadge,
     AdminEmptyState,
@@ -9,6 +9,7 @@ import {
     AdminLoading,
     AdminPageHeader,
     admin,
+    adminTable,
 } from '@/components/admin/admin-ui';
 
 type MerchantData = {
@@ -44,6 +45,18 @@ function statusTone(s: string): 'success' | 'warning' | 'danger' | 'default' {
     return 'default';
 }
 
+function relativeTime(iso: string) {
+    const ms = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hr ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export default function AdminMerchantsPage() {
     const [data, setData] = useState<MerchantData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -66,13 +79,14 @@ export default function AdminMerchantsPage() {
     }, []);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 lg:space-y-8">
             <AdminPageHeader
+                eyebrow="Partners"
                 title="Merchants"
                 subtitle="Partner API checkouts, keys, and webhook delivery"
                 action={
                     <button type="button" onClick={load} disabled={loading} className={admin.btnSecondary}>
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} strokeWidth={1.75} />
                         Refresh
                     </button>
                 }
@@ -80,28 +94,48 @@ export default function AdminMerchantsPage() {
 
             {error && <AdminErrorBanner message={error} />}
 
-            <div className="grid gap-4 sm:grid-cols-3">
-                <div className={`${admin.card} p-4 flex items-center gap-3`}>
-                    <Store className="h-8 w-8 text-[var(--brand-accent)]" />
-                    <div>
-                        <p className="text-xs text-slate-500">Merchants with checkouts</p>
-                        <p className="text-2xl font-bold">{data?.merchantCount ?? 0}</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+                <div className={`${admin.card} p-3.5`}>
+                    <div className="flex items-start justify-between">
+                        <p className="text-[11px] font-medium text-slate-500">Merchants</p>
+                        <div className="rounded-lg bg-[var(--brand-accent-muted)] p-1.5 text-[#8B7344] ring-1 ring-inset ring-black/[0.03]">
+                            <Store className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
                     </div>
-                </div>
-                <div className={`${admin.card} p-4`}>
-                    <p className="text-xs text-slate-500">Total checkouts</p>
-                    <p className="text-2xl font-bold">{data?.totalCheckouts ?? 0}</p>
-                </div>
-                <div className={`${admin.card} p-4`}>
-                    <p className="text-xs text-slate-500">API keys (active / total)</p>
-                    <p className="text-2xl font-bold">
-                        {data?.apiKeys?.active ?? 0} / {data?.apiKeys?.total ?? 0}
+                    <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                        {(data?.merchantCount ?? 0).toLocaleString()}
                     </p>
+                    <p className="mt-2 text-[11px] text-slate-400">With checkouts</p>
+                </div>
+                <div className={`${admin.card} p-3.5`}>
+                    <div className="flex items-start justify-between">
+                        <p className="text-[11px] font-medium text-slate-500">Checkouts</p>
+                        <div className="rounded-lg bg-sky-50/80 p-1.5 text-sky-700 ring-1 ring-inset ring-black/[0.03]">
+                            <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                    </div>
+                    <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                        {(data?.totalCheckouts ?? 0).toLocaleString()}
+                    </p>
+                    <p className="mt-2 text-[11px] text-slate-400">All time</p>
+                </div>
+                <div className={`${admin.card} p-3.5`}>
+                    <div className="flex items-start justify-between">
+                        <p className="text-[11px] font-medium text-slate-500">API keys</p>
+                        <div className="rounded-lg bg-violet-50/80 p-1.5 text-violet-700 ring-1 ring-inset ring-black/[0.03]">
+                            <KeyRound className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                    </div>
+                    <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                        {data?.apiKeys?.active ?? 0}
+                        <span className="text-base font-medium text-slate-400"> / {data?.apiKeys?.total ?? 0}</span>
+                    </p>
+                    <p className="mt-2 text-[11px] text-slate-400">Active / total</p>
                 </div>
             </div>
 
-            {data?.checkoutStats && (
-                <div className={`${admin.card} p-4 flex flex-wrap gap-2`}>
+            {data?.checkoutStats && data.checkoutStats.length > 0 && (
+                <div className={`${admin.card} flex flex-wrap gap-2 px-5 py-4`}>
                     {data.checkoutStats.map((s) => (
                         <AdminBadge key={s.status} tone={statusTone(s.status)}>
                             {s.status}: {s.c}
@@ -111,8 +145,8 @@ export default function AdminMerchantsPage() {
             )}
 
             <div className={admin.card}>
-                <div className={admin.cardHeader}>
-                    <h2 className="font-semibold text-slate-800">Recent checkouts</h2>
+                <div className="border-b border-slate-100/80 px-5 py-4">
+                    <h2 className="text-sm font-semibold tracking-tight text-slate-900">Recent checkouts</h2>
                 </div>
                 {loading ? (
                     <AdminLoading />
@@ -120,29 +154,36 @@ export default function AdminMerchantsPage() {
                     <AdminEmptyState message="No merchant checkouts yet." />
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[640px] text-sm">
-                            <thead className="bg-slate-50/80 text-left">
-                                <tr>
-                                    <th className="px-5 py-3 font-semibold text-slate-600">Merchant</th>
-                                    <th className="px-5 py-3 font-semibold text-slate-600">Label</th>
-                                    <th className="px-5 py-3 font-semibold text-slate-600">Amount</th>
-                                    <th className="px-5 py-3 font-semibold text-slate-600">Status</th>
-                                    <th className="px-5 py-3 font-semibold text-slate-600">Created</th>
+                        <table className="w-full min-w-[640px] text-left text-sm">
+                            <thead>
+                                <tr className={adminTable.head}>
+                                    <th className={adminTable.th}>Merchant</th>
+                                    <th className={adminTable.thTight}>Label</th>
+                                    <th className={adminTable.thTight}>Amount</th>
+                                    <th className={adminTable.thTight}>Status</th>
+                                    <th className={adminTable.th}>Created</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody>
                                 {data.checkouts.map((c) => (
-                                    <tr key={c.id}>
-                                        <td className="px-5 py-3 truncate max-w-[140px]">{c.merchantEmail}</td>
-                                        <td className="px-5 py-3">{c.label}</td>
-                                        <td className="px-5 py-3 tabular-nums">
+                                    <tr key={c.id} className={adminTable.row}>
+                                        <td className={`${adminTable.td} max-w-[160px] truncate text-[13px] font-medium text-slate-800`}>
+                                            {c.merchantEmail}
+                                        </td>
+                                        <td className={`${adminTable.tdTight} text-[13px] text-slate-600`}>
+                                            {c.label || '—'}
+                                        </td>
+                                        <td className={`${adminTable.tdTight} text-[13px] font-semibold tabular-nums text-slate-800`}>
                                             {c.amount} {c.asset.toUpperCase()}
                                         </td>
-                                        <td className="px-5 py-3">
+                                        <td className={adminTable.tdTight}>
                                             <AdminBadge tone={statusTone(c.status)}>{c.status}</AdminBadge>
                                         </td>
-                                        <td className="px-5 py-3 text-slate-500 whitespace-nowrap">
-                                            {new Date(c.createdAt).toLocaleString()}
+                                        <td
+                                            className={`${adminTable.td} text-[12px] text-slate-500`}
+                                            title={new Date(c.createdAt).toLocaleString()}
+                                        >
+                                            {relativeTime(c.createdAt)}
                                         </td>
                                     </tr>
                                 ))}
@@ -154,15 +195,24 @@ export default function AdminMerchantsPage() {
 
             {(data?.failedWebhooks?.length ?? 0) > 0 && (
                 <div className={admin.card}>
-                    <div className={admin.cardHeader}>
-                        <h2 className="font-semibold text-red-800">Failed webhooks</h2>
+                    <div className="flex items-center gap-2 border-b border-slate-100/80 px-5 py-4">
+                        <div className="rounded-xl bg-rose-50/80 p-2 text-rose-700 ring-1 ring-inset ring-black/[0.03]">
+                            <Webhook className="h-4 w-4" strokeWidth={1.75} />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold tracking-tight text-slate-900">Failed webhooks</h2>
+                            <p className="text-[11px] text-slate-400">{data!.failedWebhooks.length} delivery failures</p>
+                        </div>
                     </div>
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-slate-50">
                         {data!.failedWebhooks.map((w) => (
-                            <li key={w.id} className="px-5 py-3 text-sm">
-                                <p className="font-medium">{w.checkoutLabel} · {w.eventType}</p>
-                                <p className="text-slate-500">
-                                    {w.merchantEmail} · HTTP {w.responseStatus ?? '—'} · {new Date(w.deliveredAt).toLocaleString()}
+                            <li key={w.id} className="px-5 py-3.5 transition hover:bg-slate-50/70">
+                                <p className="text-[13px] font-semibold text-slate-800">
+                                    {w.checkoutLabel} · {w.eventType}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-slate-400">
+                                    {w.merchantEmail} · HTTP {w.responseStatus ?? '—'} ·{' '}
+                                    {new Date(w.deliveredAt).toLocaleString()}
                                 </p>
                             </li>
                         ))}

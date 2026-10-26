@@ -23,6 +23,9 @@
 # local postgres data (npm run db:start)
 .pgdata/
 
+# local avatar uploads
+/uploads/
+
 # misc
 .DS_Store
 *.pem

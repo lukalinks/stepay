@@ -13,6 +13,7 @@ import { BackupNudge } from '@/components/wallet/BackupNudge';
 import { WalletGateInline } from '@/components/wallet/WalletGateInline';
 import { useRequireWalletUnlocked } from '@/components/wallet/useRequireWalletUnlocked';
 import { useMarketRates } from '@/components/market/useMarketRates';
+import { CashRailRouter } from '@/components/market/CashRailRouter';
 import { formatPhoneE164ForMarket } from '@/lib/phone';
 import type { MobileOperatorId } from '@/lib/markets';
 import { MobileOperatorPicker, MobileOperatorBadge } from '@/components/MobileOperatorPicker';
@@ -21,6 +22,9 @@ import { parsePositiveDecimal, sanitizeDecimalInput } from '@/lib/parse-amount';
 function toFriendlySellError(msg?: string): string {
     if (!msg) return 'Something went wrong. Please try again in a moment.';
     const m = msg.toLowerCase();
+    if (m.includes('not available right now') || m.includes('try again later or contact support')) {
+        return 'Cash out is not available right now. Please try again later or contact support.';
+    }
     if (m.includes('insufficient') || m.includes('balance')) return msg;
     if (m.includes('minimum') || m.includes('maximum')) return msg;
     if (m.includes('valid amount to cash out') || m.includes('positive number')) return 'Enter a valid amount greater than zero.';
@@ -103,7 +107,11 @@ export default function SellPage() {
             return;
         }
         if (!hasMobileMoney) {
-            setError('Mobile money payouts are not available in your country yet.');
+            setError(
+                market.comingSoon
+                    ? `Cash out coming soon in ${market.countryName}.`
+                    : 'Cash out is not available for your country with mobile money.'
+            );
             return;
         }
         if (!canProceed()) {
@@ -141,6 +149,7 @@ export default function SellPage() {
     };
 
     const handleConfirm = async () => {
+        if (!canProceed()) return;
         setIsLoading(true);
         setError('');
         try {
@@ -172,8 +181,7 @@ export default function SellPage() {
 
     const handleSell = handlePrepare;
 
-    return (
-        <DashboardPanel>
+    const mobileMoneySell = (
             <div className={dash.panelPadding}>
                 {status === 'success' ? (
                     <div className="text-center py-6">
@@ -292,6 +300,11 @@ export default function SellPage() {
                     </form>
                 )}
             </div>
+    );
+
+    return (
+        <DashboardPanel>
+            <CashRailRouter kind="withdraw" mobileMoney={mobileMoneySell} />
         </DashboardPanel>
     );
 }

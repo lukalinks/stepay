@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { BRAND, primaryCtaSx } from '@/lib/brand';
+import { safeInternalPath } from '@/lib/safe-redirect';
 
 function AuthCallbackContent() {
     const router = useRouter();
@@ -52,8 +53,7 @@ function AuthCallbackContent() {
                 return;
             }
 
-            const target = next.startsWith('/') ? next : '/dashboard';
-            router.replace(target);
+            router.replace(safeInternalPath(next, '/dashboard'));
         };
 
         completeLogin();

@@ -1,0 +1,13 @@
+{
+  "name": "stepay-platform-signer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^13.3.0"
+  }
+}

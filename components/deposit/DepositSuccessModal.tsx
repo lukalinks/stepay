@@ -16,6 +16,8 @@ type DepositSuccessModalProps = {
     dialCode: string;
     phoneDisplay: string;
     operator: MobileOperatorId;
+    activationFiat?: number;
+    activationXlm?: number;
 };
 
 export function DepositSuccessModal({
@@ -28,6 +30,8 @@ export function DepositSuccessModal({
     dialCode,
     phoneDisplay,
     operator,
+    activationFiat = 0,
+    activationXlm = 0,
 }: DepositSuccessModalProps) {
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -71,13 +75,20 @@ export function DepositSuccessModal({
                 </h2>
                 <p className="mb-1 text-2xl font-bold text-[var(--brand-accent)] tabular-nums">
                     {cryptoAmount.toFixed(asset === 'usdc' ? 2 : 4)} {asset.toUpperCase()}
+                    {activationXlm > 0 ? (
+                        <span className="block text-sm font-semibold text-white/70">
+                            + {activationXlm.toFixed(2)} XLM setup
+                        </span>
+                    ) : null}
                 </p>
                 <p className="mb-4 text-sm text-white/55">Added to your wallet</p>
 
                 <div className={`${dash.panelInset} mb-5 space-y-2 p-3 text-left text-sm`}>
                     <div className="flex justify-between gap-2">
                         <span className="text-white/45">Paid</span>
-                        <span className="font-medium text-white">{formatFiat(amount)}</span>
+                        <span className="font-medium text-white">
+                            {formatFiat(amount + (activationFiat > 0 ? activationFiat : 0))}
+                        </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                         <span className="text-white/45">From</span>

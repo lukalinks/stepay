@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getAdminContext } from '@/lib/admin-auth';
+import { canExportPii, canExportTransactions, getAdminContext } from '@/lib/admin-auth';
 import { logAdminAction } from '@/lib/admin-audit';
 
 function csvEscape(val: unknown): string {
@@ -32,6 +32,12 @@ export async function GET(request: Request) {
         let filename = 'export.csv';
 
         if (type === 'users') {
+            if (!canExportPii(ctx.role)) {
+                return NextResponse.json(
+                    { error: 'Only superadmins can export user data.' },
+                    { status: 403 }
+                );
+            }
             const rows = await sql`
                 SELECT id, email, phone_number, role, kyc_tier, country_code, wallet_public,
                        suspended, created_at
@@ -51,6 +57,12 @@ export async function GET(request: Request) {
             csv = toCsv(['id', 'email', 'phone', 'role', 'kyc_tier', 'country', 'wallet', 'suspended', 'created_at'], data);
             filename = 'stepay-users.csv';
         } else if (type === 'alerts') {
+            if (!canExportTransactions(ctx.role)) {
+                return NextResponse.json(
+                    { error: 'Ops role required to export alerts.' },
+                    { status: 403 }
+                );
+            }
             const rows = await sql`
                 SELECT ca.id, ca.alert_type, ca.severity, ca.message, ca.resolved, ca.created_at,
                        u.email AS user_email
@@ -70,6 +82,12 @@ export async function GET(request: Request) {
             csv = toCsv(['id', 'alert_type', 'severity', 'message', 'resolved', 'user_email', 'created_at'], data);
             filename = 'stepay-alerts.csv';
         } else {
+            if (!canExportTransactions(ctx.role)) {
+                return NextResponse.json(
+                    { error: 'Ops role required to export transactions.' },
+                    { status: 403 }
+                );
+            }
             const rows = await sql`
                 SELECT t.id, t.type, t.status, t.amount_fiat, t.amount_xlm, t.asset, t.reference,
                        t.tx_hash, t.created_at, u.email AS user_email, u.phone_number AS user_phone

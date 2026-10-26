@@ -23,7 +23,8 @@ import {
     touchWalletSession,
     unlockLocalWallet,
 } from '@/lib/client-wallet';
-import { clientEnsureUSDCTrustline } from '@/lib/client-stellar';
+import { isClientSigning } from '@/lib/client-signing-lock';
+import { clientEnsureUSDCTrustline, clientEnsureUSDT0Trustline } from '@/lib/client-stellar';
 import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
 import { BRAND, authTextFieldSx, primaryCtaSx } from '@/lib/brand';
 import { RestoreWalletDialog, shouldOfferCloudRestore } from '@/components/wallet/RestoreWalletDialog';
@@ -36,7 +37,7 @@ type WalletContextValue = {
     lock: () => void;
     requestUnlock: () => void;
     openRestore: () => void;
-    ensureUsdcReady: () => Promise<void>;
+    ensureUsdcReady: () => Promise<boolean>;
     refreshLocalWallet: () => void;
 };
 
@@ -205,10 +206,14 @@ export function WalletProvider({
     serverWalletPublic?: string | null;
     hasCloudBackup?: boolean;
 }) {
-    const [unlocked, setUnlocked] = useState(false);
+    const [unlocked, setUnlocked] = useState(() =>
+        typeof window !== 'undefined' ? isWalletUnlocked() : false
+    );
     const [showUnlock, setShowUnlock] = useState(false);
     const [showRestore, setShowRestore] = useState(false);
-    const [localPublicKey, setLocalPublicKey] = useState<string | null>(null);
+    const [localPublicKey, setLocalPublicKey] = useState<string | null>(() =>
+        typeof window !== 'undefined' ? getLocalWalletPublicKey() : null
+    );
 
     const refreshLocalWallet = useCallback(() => {
         setLocalPublicKey(getLocalWalletPublicKey());
@@ -217,6 +222,9 @@ export function WalletProvider({
 
     useEffect(() => {
         refreshLocalWallet();
+        const onFocus = () => refreshLocalWallet();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
     }, [refreshLocalWallet]);
 
     useEffect(() => {
@@ -252,24 +260,54 @@ export function WalletProvider({
         setUnlocked(false);
     }, []);
 
-    const ensureUsdcReady = useCallback(async () => {
-        if (!isWalletUnlocked()) return;
+    const ensureUsdcReady = useCallback(async (): Promise<boolean> => {
+        if (!isWalletUnlocked() || isClientSigning()) return false;
         try {
+            const statusRes = await fetch('/api/deposit/usdc-ready', { credentials: 'include' });
+            const status = (await statusRes.json().catch(() => ({}))) as {
+                ready?: boolean;
+                hasAccount?: boolean;
+                activationRequired?: boolean;
+                needsUnlock?: boolean;
+            };
+            if (statusRes.ok && status.ready) {
+                await fetch('/api/deposit/retry-pending', { method: 'POST', credentials: 'include' });
+                return true;
+            }
+            // Unfunded / activation unpaid — trustline tx cannot succeed yet.
+            if (!status.hasAccount || status.activationRequired) {
+                return false;
+            }
+
+            await fetch('/api/deposit/usdc-ready', { method: 'POST', credentials: 'include' });
             const secret = getUnlockedSecret();
-            // Server may top up XLM reserve before client adds USDC trustline.
-            await fetch('/api/deposit/retry-pending', { method: 'POST' });
             await clientEnsureUSDCTrustline(secret);
-            await fetch('/api/deposit/retry-pending', { method: 'POST' });
-            await fetch('/api/operations/retry-stuck', { method: 'POST' });
-        } catch {
-            // user may not have XLM for trustline yet
+            await fetch('/api/deposit/retry-pending', { method: 'POST', credentials: 'include' });
+            const check = await fetch('/api/deposit/usdc-ready', { credentials: 'include' });
+            const data = (await check.json().catch(() => ({}))) as { ready?: boolean };
+            return check.ok && Boolean(data.ready);
+        } catch (err) {
+            console.warn('[usdc-prep]', err);
+            return false;
         }
     }, []);
 
     useEffect(() => {
-        if (unlocked) {
-            ensureUsdcReady().catch(() => {});
-        }
+        if (!unlocked) return;
+        const timer = window.setTimeout(() => {
+            if (!isClientSigning()) {
+                ensureUsdcReady()
+                    .catch(() => {})
+                    .finally(() => {
+                        try {
+                            clientEnsureUSDT0Trustline(getUnlockedSecret()).catch(() => {});
+                        } catch {
+                            /* wallet locked again */
+                        }
+                    });
+            }
+        }, 1500);
+        return () => window.clearTimeout(timer);
     }, [ensureUsdcReady, unlocked]);
 
     const value = useMemo(

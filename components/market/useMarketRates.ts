@@ -35,7 +35,9 @@ export function useMarketRates() {
         fetch('/api/rates')
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
-                if (data?.market) setMarket({ ...getMarket(data.market.countryCode), ...data.market });
+                if (data?.market?.countryCode) {
+                    setMarket({ ...getMarket(data.market.countryCode), ...data.market });
+                }
                 if (data?.rates) setRates(data.rates);
                 if (data?.fees) setFees(data.fees);
                 if (data?.limits) {
@@ -60,7 +62,20 @@ export function useMarketRates() {
     );
 
     const hasMobileMoney = market.paymentMethods.includes('mobile_money');
+    const hasStellarAnchor = market.paymentMethods.includes('stellar_anchor') && Boolean(market.anchor);
+    const comingSoon = Boolean(market.comingSoon);
     const defaultOperator = (market.mobileOperators[0]?.id ?? 'mtn') as MobileOperatorId;
 
-    return { market, rates, fees, limits, fetchRates, formatFiat, hasMobileMoney, defaultOperator };
+    return {
+        market,
+        rates,
+        fees,
+        limits,
+        fetchRates,
+        formatFiat,
+        hasMobileMoney,
+        hasStellarAnchor,
+        comingSoon,
+        defaultOperator,
+    };
 }

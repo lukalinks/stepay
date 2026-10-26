@@ -1,5 +1,5 @@
 import { isIP } from 'node:net';
-import { MAIN_HOST } from '@/lib/hosts';
+import { allMainAppHosts } from '@/lib/hosts';
 
 const BLOCKED_HOSTNAMES = new Set([
     'localhost',
@@ -100,7 +100,7 @@ export function sanitizeRedirectUrlForClient(raw: string | null | undefined): st
     try {
         const parsed = new URL(raw.trim());
         const host = parsed.hostname.toLowerCase();
-        const stepayHosts = new Set([MAIN_HOST, `www.${MAIN_HOST}`, 'localhost', '127.0.0.1']);
+        const stepayHosts = new Set([...allMainAppHosts(), 'localhost', '127.0.0.1']);
         if (parsed.protocol === 'https:' && (stepayHosts.has(host) || !isPrivateOrReservedIp(host))) {
             if (!BLOCKED_HOSTNAMES.has(host) && !host.endsWith('.local')) {
                 return parsed.toString();

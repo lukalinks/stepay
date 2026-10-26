@@ -3,45 +3,68 @@
 import Link from 'next/link';
 import { CheckCircle2, Circle, X } from 'lucide-react';
 import { dash } from '@/lib/dashboard-ui';
-import { markOnboardingSeen, shouldShowOnboardingChecklist } from '@/lib/client-wallet';
+import {
+    hasRevealedSecret,
+    markOnboardingSeen,
+    shouldShowOnboardingChecklist,
+} from '@/lib/client-wallet';
 import { useEffect, useState } from 'react';
 
 type ChecklistProps = {
     profileComplete?: boolean;
     walletUnlocked?: boolean;
+    hasCloudBackup?: boolean;
+    hasCompletedDeposit?: boolean;
 };
 
-export function OnboardingChecklist({ profileComplete, walletUnlocked }: ChecklistProps) {
+export function OnboardingChecklist({
+    profileComplete,
+    walletUnlocked,
+    hasCloudBackup,
+    hasCompletedDeposit,
+}: ChecklistProps) {
     const [visible, setVisible] = useState(false);
+    const [secretBackedUp, setSecretBackedUp] = useState(false);
 
     useEffect(() => {
         setVisible(shouldShowOnboardingChecklist());
-    }, []);
+        setSecretBackedUp(hasRevealedSecret() || Boolean(hasCloudBackup));
+    }, [hasCloudBackup]);
 
     if (!visible) return null;
 
     const steps = [
-        { done: true, label: 'Wallet created on this device', href: null },
-        { done: walletUnlocked, label: 'Wallet unlocked', href: null },
+        { done: true, label: 'Wallet created on this device', href: null as string | null },
+        { done: Boolean(walletUnlocked), label: 'Wallet unlocked', href: null },
         {
-            done: profileComplete,
-            label: 'Complete profile (for deposits & cash out)',
+            done: Boolean(profileComplete),
+            label: 'Complete profile (needed for cash out)',
             href: '/profile/complete?next=/dashboard',
         },
         {
-            done: false,
-            label: 'Back up secret key in Settings',
+            done: secretBackedUp,
+            label: hasCloudBackup ? 'Cloud backup enabled' : 'Back up secret key in Settings',
             href: '/dashboard/settings#wallet-security',
         },
-        { done: false, label: 'Make your first deposit', href: '/dashboard/buy' },
+        {
+            done: Boolean(hasCompletedDeposit),
+            label: 'Make your first deposit',
+            href: '/dashboard/buy',
+        },
     ];
+
+    const allDone = steps.every((s) => s.done);
 
     return (
         <div className={`${dash.panelInset} mb-4 p-4`}>
             <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                     <p className="text-sm font-semibold text-white">Get started with Stepay</p>
-                    <p className="mt-0.5 text-xs text-white/45">Your non-custodial wallet is ready. Finish these when you can.</p>
+                    <p className="mt-0.5 text-xs text-white/45">
+                        {allDone
+                            ? "You're set — dismiss anytime."
+                            : 'Your non-custodial wallet is ready. Finish these when you can.'}
+                    </p>
                 </div>
                 <button
                     type="button"

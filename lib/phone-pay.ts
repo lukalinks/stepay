@@ -155,7 +155,7 @@ export async function notifyRegisteredRecipient(opts: {
         await notifyPhoneTransfer({
             recipientPhone: user.phone_number,
             amount: opts.amount,
-            asset: opts.asset as 'xlm' | 'usdc',
+            asset: opts.asset,
             claimUrl: `${process.env.AUTH_URL?.replace(/\/$/, '') || 'http://localhost:3000'}/dashboard`,
             isRegistered: true,
             senderName: opts.senderName,

@@ -12,6 +12,8 @@ import { runSignedConfirmFlow } from '@/lib/client-confirm-flow';
 import { BackupNudge } from '@/components/wallet/BackupNudge';
 import { WalletGateInline } from '@/components/wallet/WalletGateInline';
 import { useRequireWalletUnlocked } from '@/components/wallet/useRequireWalletUnlocked';
+import { useWallet } from '@/components/wallet/WalletProvider';
+import { prepareUsdcWallet } from '@/lib/usdc-deposit-client';
 import { parsePositiveDecimal, sanitizeDecimalInput } from '@/lib/parse-amount';
 
 type Asset = 'xlm' | 'usdc';
@@ -21,7 +23,8 @@ function assetLabel(asset: Asset) {
 }
 
 export default function SwapPage() {
-    const { canProceed, needsUnlock } = useRequireWalletUnlocked();
+    const { canProceed, needsUnlock, walletReady } = useRequireWalletUnlocked();
+    const { ensureUsdcReady } = useWallet();
     const [from, setFrom] = useState<Asset>('xlm');
     const [amount, setAmount] = useState('');
     const [quote, setQuote] = useState<number | null>(null);
@@ -132,6 +135,16 @@ export default function SwapPage() {
             return;
         }
 
+        if (to === 'usdc') {
+            const prep = await prepareUsdcWallet({ ensureUsdcReady, walletReady });
+            if (!prep.ok) {
+                setErrorMessage(prep.error || 'USDC wallet setup required before swap.');
+                setStatus('error');
+                setIsLoading(false);
+                return;
+            }
+        }
+
         if (!quote) {
             setErrorMessage(quoteError ? 'Could not load swap rate. Check your connection and try again.' : 'Enter an amount to get a quote.');
             setStatus('error');
@@ -167,8 +180,19 @@ export default function SwapPage() {
     };
 
     const handleConfirm = async () => {
+        if (!canProceed()) return;
         setIsLoading(true);
         setConfirmError('');
+
+        if (to === 'usdc') {
+            const prep = await prepareUsdcWallet({ ensureUsdcReady, walletReady });
+            if (!prep.ok) {
+                setConfirmError(prep.error || 'USDC wallet setup required before swap.');
+                setIsLoading(false);
+                return;
+            }
+        }
+
         try {
             const result = await runSignedConfirmFlow({
                 confirmUrl: '/api/swap/confirm',

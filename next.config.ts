@@ -10,7 +10,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://horizon.stellar.org https://api.lenco.co https://*.lenco.co wss:",
+  "connect-src 'self' https://horizon.stellar.org https://horizon-testnet.stellar.org https://api.lenco.co https://*.lenco.co wss:",
+  "frame-src 'self' https://*.moneygram.com https://moneygram.com https://extmgxanchor.moneygram.com https://mgxanchor.moneygram.com https://stellar.moneygram.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -24,7 +25,8 @@ const embedCheckoutCsp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://horizon.stellar.org https://api.lenco.co https://*.lenco.co wss:",
+  "connect-src 'self' https://horizon.stellar.org https://horizon-testnet.stellar.org https://api.lenco.co https://*.lenco.co wss:",
+  "frame-src 'self' https://*.moneygram.com https://moneygram.com",
   "frame-ancestors *",
   "base-uri 'self'",
   "form-action 'self'",
@@ -68,11 +70,23 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
+        source: "/",
+        headers: [...securityHeaders, ...noStoreHeaders],
+      },
+      {
         source: "/signup",
         headers: [...securityHeaders, ...noStoreHeaders],
       },
       {
         source: "/login",
+        headers: [...securityHeaders, ...noStoreHeaders],
+      },
+      {
+        source: "/dashboard",
+        headers: [...securityHeaders, ...noStoreHeaders],
+      },
+      {
+        source: "/dashboard/:path*",
         headers: [...securityHeaders, ...noStoreHeaders],
       },
       {
@@ -86,6 +100,14 @@ const nextConfig: NextConfig = {
       {
         source: "/embed.js",
         headers: embedScriptHeaders,
+      },
+      {
+        source: "/.well-known/stellar.toml",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Content-Type", value: "text/plain; charset=utf-8" },
+          { key: "Cache-Control", value: "public, max-age=300" },
+        ],
       },
     ];
   },

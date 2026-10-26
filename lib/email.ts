@@ -101,6 +101,42 @@ export async function sendPasswordResetEmail(to: string, link: string): Promise<
     return sendEmail(to, 'Reset your Stepay password', html);
 }
 
+export async function sendInviteEmail(to: string, signupUrl: string): Promise<boolean> {
+    const html = `
+        <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#111;max-width:480px">
+            <p style="font-size:18px;font-weight:700;margin:0 0 16px">You're invited to Stepay</p>
+            <p>You've been invited to join the Stepay closed beta — dollar wallet with local cash rails where available.</p>
+            <p style="margin:24px 0">
+                <a href="${signupUrl}"
+                   style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">
+                    Create your account
+                </a>
+            </p>
+            <p style="color:#666;font-size:12px">If the button does not work, copy this URL:<br>${signupUrl}</p>
+            <p style="color:#666;font-size:12px;margin-top:24px">Stepay · Mobile money to crypto</p>
+        </div>
+    `;
+    return sendEmail(to, "You're invited to Stepay closed beta", html);
+}
+
+export async function sendWaitlistOpenEmail(to: string, signupUrl: string): Promise<boolean> {
+    const html = `
+        <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#111;max-width:480px">
+            <p style="font-size:18px;font-weight:700;margin:0 0 16px">Stepay is open</p>
+            <p>Thanks for waiting — Stepay is now available to the public. Create your wallet and start depositing with mobile money.</p>
+            <p style="margin:24px 0">
+                <a href="${signupUrl}"
+                   style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">
+                    Sign up for Stepay
+                </a>
+            </p>
+            <p style="color:#666;font-size:12px">If the button does not work, copy this URL:<br>${signupUrl}</p>
+            <p style="color:#666;font-size:12px;margin-top:24px">Stepay · Mobile money to crypto</p>
+        </div>
+    `;
+    return sendEmail(to, 'Stepay is open — create your account', html);
+}
+
 type DepositEmailDetails = {
     to: string;
     amountFiat: string;
@@ -146,6 +182,40 @@ export async function sendDepositSuccessEmail(details: DepositEmailDetails): Pro
         `
     );
     return sendEmail(details.to, `Deposit complete — ${cryptoStr} ${assetLabel}`, html);
+}
+
+export async function sendAdminInviteEmail(opts: {
+    to: string;
+    roleLabel: string;
+    loginUrl: string;
+    temporaryPassword: string | null;
+    existingAccount: boolean;
+}): Promise<boolean> {
+    const passwordBlock = opts.temporaryPassword
+        ? `
+            <p>Use this temporary password to sign in (change it after your first login via Forgot password):</p>
+            <p style="font-family:monospace;font-size:16px;font-weight:700;letter-spacing:0.04em;padding:12px 16px;background:#f4f4f5;border-radius:8px">${opts.temporaryPassword}</p>
+        `
+        : opts.existingAccount
+          ? `<p>Sign in with your existing Stepay password on the admin login page (Team password).</p>`
+          : '';
+
+    const html = `
+        <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#111;max-width:480px">
+            <p style="font-size:18px;font-weight:700;margin:0 0 16px">You're on the Stepay admin team</p>
+            <p>You've been granted <strong>${opts.roleLabel}</strong> access to the Stepay admin panel.</p>
+            ${passwordBlock}
+            <p style="margin:24px 0">
+                <a href="${opts.loginUrl}"
+                   style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">
+                    Open admin login
+                </a>
+            </p>
+            <p style="color:#666;font-size:12px">If the button does not work, copy this URL:<br>${opts.loginUrl}</p>
+            <p style="color:#666;font-size:12px;margin-top:24px">Stepay Admin</p>
+        </div>
+    `;
+    return sendEmail(opts.to, `Stepay admin access — ${opts.roleLabel}`, html);
 }
 
 export async function sendDepositFailedEmail(details: DepositFailedEmailDetails): Promise<boolean> {

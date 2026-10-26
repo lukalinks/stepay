@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, RefreshCw, X } from 'lucide-react';
-import { AdminBadge, AdminErrorBanner, admin, txStatusTone } from '@/components/admin/admin-ui';
+import { AdminErrorBanner, admin, TxStatusBadge, formatTxType } from '@/components/admin/admin-ui';
+import { isRetryableTxStatus } from '@/lib/tx-status';
 
 type TxDetail = {
     transaction: {
@@ -102,8 +103,8 @@ export function TxDetailDrawer({
                     {tx && (
                         <>
                             <div className="flex items-center gap-2">
-                                <AdminBadge tone={txStatusTone(tx.status)}>{tx.status}</AdminBadge>
-                                <span className="font-medium text-slate-800">{tx.type}</span>
+                                <TxStatusBadge status={tx.status} type={tx.type} asset={tx.asset} />
+                                <span className="font-medium text-slate-800">{formatTxType(tx.type)}</span>
                             </div>
                             <dl className="space-y-2 text-sm">
                                 <div>
@@ -176,23 +177,37 @@ export function TxDetailDrawer({
                                 </div>
                             )}
 
-                            {canRunOps && (tx.status === 'PENDING' || tx.status === 'PROCESSING') && (
-                                <div className="flex flex-wrap gap-2 pt-2">
-                                    <button
-                                        type="button"
-                                        className={admin.btnPrimary}
-                                        onClick={() => runAction('retry')}
-                                    >
-                                        <RefreshCw className="h-4 w-4" />
-                                        Retry finalize
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={admin.btnSecondary}
-                                        onClick={() => runAction('mark_failed', 'Admin marked failed')}
-                                    >
-                                        Mark failed
-                                    </button>
+                            {canRunOps && isRetryableTxStatus(tx.status, tx.type, tx.txHash) && (
+                                <div className="space-y-2 pt-2">
+                                    {tx.type === 'BUY' && tx.status === 'FAILED' && !tx.txHash && (
+                                        <p className="text-xs text-amber-700">
+                                            Paid deposit with no crypto credit — retry to re-check Lenco and send funds.
+                                        </p>
+                                    )}
+                                    {tx.status === 'PAYOUT_FAILED' && (
+                                        <p className="text-xs text-amber-700">
+                                            Crypto received but mobile-money payout failed — retry Lenco payout.
+                                        </p>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            className={admin.btnPrimary}
+                                            onClick={() => runAction('retry')}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            {tx.type === 'BUY' ? 'Retry credit' : 'Retry finalize'}
+                                        </button>
+                                        {(tx.status === 'PENDING' || tx.status === 'PROCESSING') && (
+                                            <button
+                                                type="button"
+                                                className={admin.btnSecondary}
+                                                onClick={() => runAction('mark_failed', 'Admin marked failed')}
+                                            >
+                                                Mark failed
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </>

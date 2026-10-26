@@ -6,13 +6,16 @@ import { getUserInitials } from '@/lib/user-display';
 type UserAvatarProps = {
     fullName?: string | null;
     email?: string | null;
+    avatarUrl?: string | null;
     size?: number;
     sx?: object;
 };
 
-export function UserAvatar({ fullName, email, size = 40, sx }: UserAvatarProps) {
+export function UserAvatar({ fullName, email, avatarUrl, size = 40, sx }: UserAvatarProps) {
     return (
         <Avatar
+            src={avatarUrl || undefined}
+            alt={fullName?.trim() || email || 'User'}
             sx={{
                 width: size,
                 height: size,

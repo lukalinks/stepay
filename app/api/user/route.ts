@@ -4,7 +4,7 @@ import { StellarService } from '@/lib/stellar';
 import { getRates } from '@/lib/rates';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { getTierLimits } from '@/lib/kyc-tiers';
-import { getMarket, marketToJson, resolveCountryCode } from '@/lib/markets';
+import { getMarket, marketToJson, normalizeCountryCode } from '@/lib/markets';
 
 export async function GET(request: Request) {
     try {
@@ -40,16 +40,18 @@ export async function GET(request: Request) {
             Promise.all([
                 StellarService.getBalance(String(user.wallet_public)),
                 StellarService.getUSDCBalance(String(user.wallet_public)),
+                StellarService.getUSDT0Balance(String(user.wallet_public)),
+                StellarService.hasUSDT0Trustline(String(user.wallet_public)),
                 getRates(),
             ])
-                .then(([xlm, usdc, rates]) => ({ xlm, usdc, rates }))
+                .then(([xlm, usdc, usdt0, usdt0Trusted, rates]) => ({ xlm, usdc, usdt0, usdt0Trusted, rates }))
                 .catch((err) => {
                     console.error('Balance/rates fetch error:', err);
-                    return { xlm: '0', usdc: '0', rates: { xlm_sell: 3.5, usdc_sell: 25 } };
+                    return { xlm: '0', usdc: '0', usdt0: '0', usdt0Trusted: false, rates: { xlm_sell: 3.5, usdc_sell: 25 } };
                 }),
         ]);
 
-        const { xlm: xlmBalance, usdc: usdcBalance, rates } = balanceResult;
+        const { xlm: xlmBalance, usdc: usdcBalance, usdt0: usdt0Balance, usdt0Trusted, rates } = balanceResult;
 
         const transactionsForFrontend = (txRows as Record<string, unknown>[]).map((tx) => ({
             id: tx.id,
@@ -71,15 +73,16 @@ export async function GET(request: Request) {
         const isProfileComplete = !!(fullName && phone.length >= 10 && address && idDocNumber);
         const tierLimits = await getTierLimits(userId);
         const usdcNum = Number(usdcBalance);
+        const usdt0Num = Number(usdt0Balance);
         const xlmNum = Number(xlmBalance);
 
         const walletCustody =
             user.wallet_secret_enc || (user.wallet_secret && String(user.wallet_secret).trim())
                 ? ('hosted' as const)
                 : ('self' as const);
-        const countryCode = resolveCountryCode(user.country_code as string | undefined);
+        const countryCode = normalizeCountryCode(user.country_code as string | undefined);
         const market = getMarket(countryCode);
-        const fiatTotal = (xlmNum * rates.xlm_sell + usdcNum * rates.usdc_sell).toFixed(2);
+        const fiatTotal = (xlmNum * rates.xlm_sell + (usdcNum + usdt0Num) * rates.usdc_sell).toFixed(2);
 
         return NextResponse.json({
             user: {
@@ -103,8 +106,11 @@ export async function GET(request: Request) {
             balance: {
                 xlm: xlmBalance,
                 usdc: usdcBalance,
+                usdt0: usdt0Balance,
+                usdt0Trusted,
                 xlmLocalEquiv: (xlmNum * rates.xlm_sell).toFixed(2),
                 usdcLocalEquiv: (usdcNum * rates.usdc_sell).toFixed(2),
+                usdt0LocalEquiv: (usdt0Num * rates.usdc_sell).toFixed(2),
                 xlmZmwEquiv: (xlmNum * rates.xlm_sell).toFixed(2),
                 usdcZmwEquiv: (usdcNum * rates.usdc_sell).toFixed(2),
                 usdPrimary: usdcNum.toFixed(2),

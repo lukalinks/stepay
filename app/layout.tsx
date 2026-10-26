@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Stepay | Send, save & get paid across Africa',
-  description: 'Dollar wallet for people, freelancers, and businesses. Send across Africa, hold USDC & XLM, accept payments, and cash out to mobile money. No bank account needed.',
+  title: 'Stepay | Your dollar wallet for Africa',
+  description:
+    'Send money across Africa, hold USDC, and get paid — all from one non-custodial wallet. Mobile money on-ramp, ~5s transfers on Stellar, no bank account needed.',
 };
 
 export default function RootLayout({

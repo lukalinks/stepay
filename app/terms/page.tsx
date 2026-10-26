@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BackButton } from '@/components/BackButton';
 import { Header } from '@/components/Header';
 
 export const metadata = {
@@ -48,9 +48,7 @@ export default function TermsPage() {
           </section>
         </div>
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-200">
-          <Link href="/" className="text-[var(--brand-accent)] hover:text-[var(--brand-accent-hover)] font-medium py-3 min-h-[44px] inline-flex items-center transition-colors">
-            ← Back to Home
-          </Link>
+          <BackButton href="/" label="Back to home" variant="light" />
         </div>
       </main>
     </div>

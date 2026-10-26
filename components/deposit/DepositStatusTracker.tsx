@@ -1,14 +1,17 @@
 'use client';
 
 import { Check, Loader2, Smartphone, Wallet, AlertCircle } from 'lucide-react';
+import type { DepositTrackStep } from '@/lib/deposit-track-ui';
 
-export type DepositTrackStep = 'awaiting_approval' | 'waiting_trustline' | 'complete' | 'failed';
+export type { DepositTrackStep };
 
 type DepositStatusTrackerProps = {
     step: DepositTrackStep;
     asset: 'xlm' | 'usdc';
     reference?: string;
     errorMessage?: string;
+    /** Tighter layout for embedded/dashboard panels */
+    compact?: boolean;
 };
 
 type StepDef = {
@@ -19,7 +22,13 @@ type StepDef = {
     state: 'done' | 'current' | 'upcoming' | 'error';
 };
 
-export function DepositStatusTracker({ step, asset, reference, errorMessage }: DepositStatusTrackerProps) {
+export function DepositStatusTracker({
+    step,
+    asset,
+    reference,
+    errorMessage,
+    compact = false,
+}: DepositStatusTrackerProps) {
     const assetLabel = asset.toUpperCase();
 
     const steps: StepDef[] = [
@@ -32,45 +41,56 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
         {
             key: 'approve',
             icon: Smartphone,
-            label: 'Approve payment on your phone',
+            label: 'Approve on your phone',
             hint:
                 step === 'awaiting_approval'
-                    ? 'Check your phone for a mobile money prompt and approve the payment.'
+                    ? 'Open the mobile money prompt on your phone and approve. This usually takes under a minute.'
                     : undefined,
             state:
                 step === 'failed'
                     ? 'error'
                     : step === 'awaiting_approval'
                       ? 'current'
-                      : step === 'waiting_trustline' || step === 'complete'
+                      : step === 'crediting' || step === 'waiting_trustline' || step === 'complete'
                         ? 'done'
                         : 'upcoming',
         },
         {
             key: 'wallet',
             icon: Wallet,
-            label: `${assetLabel} sent to your wallet`,
+            label:
+                step === 'waiting_trustline'
+                    ? `Unlock wallet to receive ${assetLabel}`
+                    : step === 'complete'
+                      ? `${assetLabel} added to your wallet`
+                      : `${assetLabel} to your wallet`,
             hint:
                 step === 'waiting_trustline'
-                    ? 'Unlock your wallet in Stepay to receive USDC on your account.'
-                    : step === 'complete'
-                      ? 'Your balance has been updated.'
-                      : undefined,
+                    ? 'Your payment succeeded. Unlock your Stepay wallet below so we can finish sending USDC.'
+                    : step === 'crediting'
+                      ? 'Payment approved — sending crypto now. Keep this page open if you can.'
+                      : step === 'complete'
+                        ? 'Your balance is updated. You are all set.'
+                        : undefined,
             state:
                 step === 'complete'
                     ? 'done'
                     : step === 'waiting_trustline'
                       ? 'current'
-                      : step === 'failed'
-                        ? 'error'
-                        : 'upcoming',
+                      : step === 'crediting'
+                        ? 'current'
+                        : step === 'failed'
+                          ? 'error'
+                          : 'upcoming',
         },
     ];
 
     return (
-        <div className="space-y-4">
+        <div className={compact ? 'space-y-3' : 'space-y-4'}>
             <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold font-heading text-white">Deposit status</h3>
+                <h3 className={`font-bold font-heading text-white ${compact ? 'text-base' : 'text-lg'}`}>
+                    {step === 'complete' ? 'Deposit complete' : 'Deposit in progress'}
+                </h3>
                 {step !== 'complete' && step !== 'failed' && (
                     <Loader2 className="h-4 w-4 animate-spin text-[var(--brand-accent)]" aria-hidden />
                 )}
@@ -79,14 +99,22 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
             {step !== 'complete' && step !== 'failed' && (
                 <p className="text-xs text-white/45" role="status" aria-live="polite">
                     {step === 'awaiting_approval'
-                        ? 'Waiting for you to approve the payment on your phone…'
-                        : step === 'waiting_trustline'
-                          ? 'Payment received — finish wallet setup to credit USDC…'
-                          : 'Updating status…'}
+                        ? 'Waiting for approval on your phone…'
+                        : step === 'crediting'
+                          ? 'Payment approved — crediting your wallet…'
+                          : step === 'waiting_trustline'
+                            ? 'Payment received — unlock your wallet to finish…'
+                            : 'Updating status…'}
                 </p>
             )}
 
-            <div className="space-y-3">
+            {step === 'complete' && (
+                <p className="text-xs text-white/50" role="status" aria-live="polite">
+                    {assetLabel} is in your wallet and ready to use.
+                </p>
+            )}
+
+            <div className={compact ? 'space-y-2' : 'space-y-3'}>
                 {steps.map((s) => {
                     const Icon = s.icon;
                     const isDone = s.state === 'done';
@@ -96,7 +124,9 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
                     return (
                         <div
                             key={s.key}
-                            className={`flex items-start gap-3 rounded-xl border p-3 transition-colors ${
+                            className={`flex items-start gap-3 rounded-xl border transition-colors ${
+                                compact ? 'p-2.5' : 'p-3'
+                            } ${
                                 isDone
                                     ? 'border-[var(--brand-accent)]/25 bg-[var(--brand-accent)]/10'
                                     : isCurrent
@@ -107,7 +137,9 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
                             }`}
                         >
                             <div
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                className={`flex shrink-0 items-center justify-center rounded-full ${
+                                    compact ? 'h-8 w-8' : 'h-9 w-9'
+                                } ${
                                     isDone
                                         ? 'bg-[var(--brand-accent)] text-[var(--brand-accent-contrast)]'
                                         : isCurrent
@@ -141,7 +173,7 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
                                 >
                                     {s.label}
                                 </p>
-                                {s.hint && (isCurrent || isDone) && (
+                                {s.hint && (isCurrent || (isDone && step === 'complete' && s.key === 'wallet')) && (
                                     <p className={`mt-1 text-xs ${isDone ? 'text-white/45' : 'text-white/55'}`}>
                                         {s.hint}
                                     </p>
@@ -158,8 +190,8 @@ export function DepositStatusTracker({ step, asset, reference, errorMessage }: D
                 </p>
             )}
 
-            {reference && (
-                <p className="font-mono text-xs text-white/30">Ref: {reference}</p>
+            {reference && step !== 'complete' && (
+                <p className="font-mono text-[0.6875rem] text-white/30">Ref {reference}</p>
             )}
         </div>
     );

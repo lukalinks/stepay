@@ -208,10 +208,10 @@ export async function finalizeSwapClientTx(
     let outboundHash: string;
     try {
         if (clientPlan.toAsset === 'usdc') {
-            const hasTrust = await StellarService.hasUSDCTrustline(user.wallet_public);
+            const hasTrust = await StellarService.waitForUSDCTrustline(user.wallet_public);
             if (!hasTrust) {
                 await sql`UPDATE transactions SET status = 'FAILED', tx_hash = ${inboundTxHash} WHERE id = ${clientPlan.swapTxId}`;
-                throw new Error('Enable USDC on your wallet before swapping to USDC.');
+                throw new Error('Enable USDC on your wallet before swapping to USDC. Unlock your wallet and try again.');
             }
             outboundHash = await StellarService.sendUSDC(platformSecret, user.wallet_public, toStr, clientPlan.reference);
         } else {

@@ -2,9 +2,55 @@
 export const MAIN_HOST = (process.env.MAIN_HOST || 'stepay.pro').toLowerCase();
 export const ADMIN_HOST = (process.env.ADMIN_HOST || 'admin.stepay.pro').toLowerCase();
 
+/** Additional public app hostnames (comma-separated), e.g. getstepay.com */
+export const ALT_HOSTS = (process.env.ALT_HOSTS || 'getstepay.com')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+
 export function normalizeHost(host: string | null | undefined): string {
     if (!host) return '';
     return host.split(':')[0].toLowerCase();
+}
+
+/** All hostnames that serve the main Stepay app (landing + public pages). */
+export function allMainAppHosts(): string[] {
+    const hosts = new Set<string>([MAIN_HOST, `www.${MAIN_HOST}`]);
+    for (const alt of ALT_HOSTS) {
+        hosts.add(alt);
+        hosts.add(`www.${alt}`);
+    }
+    return [...hosts];
+}
+
+export function isMainAppHost(host: string | null | undefined): boolean {
+    const h = normalizeHost(host);
+    if (!h) return false;
+    return allMainAppHosts().includes(h);
+}
+
+/** Alternate marketing domains — auth/dashboard runs on canonical MAIN_HOST. */
+export function isAltMainHost(host: string | null | undefined): boolean {
+    const h = normalizeHost(host);
+    if (!h) return false;
+    for (const alt of ALT_HOSTS) {
+        if (h === alt || h === `www.${alt}`) return true;
+    }
+    return false;
+}
+
+/** Paths that require the canonical domain for shared auth cookies. */
+export function requiresCanonicalHost(pathname: string): boolean {
+    return (
+        pathname.startsWith('/dashboard') ||
+        pathname.startsWith('/admin') ||
+        pathname.startsWith('/login') ||
+        pathname.startsWith('/signup') ||
+        pathname.startsWith('/profile') ||
+        pathname.startsWith('/auth/') ||
+        pathname.startsWith('/forgot-password') ||
+        pathname.startsWith('/reset-password')
+    );
 }
 
 export function adminBaseUrl(): string {

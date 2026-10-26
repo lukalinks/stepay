@@ -30,15 +30,30 @@ export default function TransactionsPage() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    const hasPending = data?.transactions?.some((tx: { status: string }) => {
+    const hasActiveBuy = data?.transactions?.some((tx: { type: string; status: string }) => {
         const s = (tx.status || '').toUpperCase();
-        return s === 'PENDING' || s === 'PROCESSING';
+        return tx.type === 'BUY' && (s === 'PENDING' || s === 'PROCESSING');
     });
+
+    const refreshDeposits = useCallback(() => {
+        if (!hasActiveBuy) return;
+        fetch('/api/deposit/retry-pending', { method: 'POST' }).catch(() => {});
+        fetch('/api/deposit/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        }).catch(() => {});
+    }, [hasActiveBuy]);
+
     useEffect(() => {
-        if (!hasPending) return;
-        const id = setInterval(fetchData, 10000);
+        if (!hasActiveBuy) return;
+        refreshDeposits();
+        const id = setInterval(() => {
+            refreshDeposits();
+            fetchData();
+        }, 5000);
         return () => clearInterval(id);
-    }, [hasPending, fetchData]);
+    }, [hasActiveBuy, refreshDeposits, fetchData]);
 
     if (loading) {
         return (

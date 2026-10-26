@@ -20,6 +20,7 @@ import {
     X as CloseIcon,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { BackButton } from '@/components/BackButton';
 import { DashboardWelcomeToast } from '@/components/DashboardWelcomeToast';
 import { UserAvatar } from '@/components/UserAvatar';
 import { getDisplayName } from '@/lib/user-display';
@@ -99,6 +100,8 @@ type UserSummary = {
     cloudBackupEnabled?: boolean;
     walletPublic?: string | null;
     isProfileComplete?: boolean;
+    hasCompletedDeposit?: boolean;
+    avatarUrl?: string | null;
 };
 
 function NavIcon({ Icon, active }: { Icon: typeof Wallet; active?: boolean }) {
@@ -225,9 +228,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     const data = await res.json();
                     if (typeof data.userId === 'string') {
                         if (isStaleSessionAfterSignup(data.userId)) {
-                            clearAccountLocalState();
+                            // Never wipe the vault here — it belongs to the account just created.
+                            const emailQs =
+                                typeof data.email === 'string' && data.email.includes('@')
+                                    ? `&email=${encodeURIComponent(data.email)}`
+                                    : '';
                             await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-                            window.location.href = '/login?error=session';
+                            window.location.href = `/login?error=session${emailQs}`;
                             return;
                         }
                         syncClientAccountSession(data.userId);
@@ -242,6 +249,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         cloudBackupEnabled: data.cloudBackupEnabled !== false,
                         walletPublic: data.walletPublic ?? null,
                         isProfileComplete: data.isProfileComplete !== false,
+                        hasCompletedDeposit: Boolean(data.hasCompletedDeposit),
+                        avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : null,
                     });
                 }
                 setAuthChecked(true);
@@ -303,7 +312,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 }}
             >
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                    <UserAvatar fullName={userSummary.fullName} email={userSummary.email} size={32} />
+                    <UserAvatar fullName={userSummary.fullName} email={userSummary.email} avatarUrl={userSummary.avatarUrl} size={32} />
                 </ListItemIcon>
                 <ListItemText
                     primary={getDisplayName(userSummary)}
@@ -386,7 +395,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         color: '#fff',
                     }}
                 >
-                    <Toolbar sx={{ justifyContent: 'space-between', minHeight: 56, px: { xs: 1.5, sm: 2 } }}>
+                    <Toolbar sx={{ justifyContent: 'space-between', minHeight: 56, px: { xs: 1.5, sm: 2 }, gap: 1 }}>
+                        {pathname !== '/dashboard' && (
+                            <BackButton href="/dashboard" ariaLabel="Back to overview" variant="dark" />
+                        )}
                         <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
                             <Typography sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.2 }} noWrap>
                                 {pageMeta.title}
@@ -409,7 +421,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {userSummary && (
                                 <IconButton component={Link} href="/dashboard/profile" aria-label="Profile" sx={{ p: 0.5 }}>
-                                    <UserAvatar fullName={userSummary.fullName} email={userSummary.email} size={32} />
+                                    <UserAvatar fullName={userSummary.fullName} email={userSummary.email} avatarUrl={userSummary.avatarUrl} size={32} />
                                 </IconButton>
                             )}
                             <IconButton aria-label="Menu" onClick={() => setMobileMenuOpen(true)} sx={{ color: BRAND.textMuted }}>
@@ -494,6 +506,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             }}
                         >
                             <Box>
+                                {pathname !== '/dashboard' && (
+                                    <Box sx={{ mb: 1 }}>
+                                        <BackButton href="/dashboard" label="Overview" variant="dark" />
+                                    </Box>
+                                )}
                                 <Typography
                                     className="font-heading"
                                     sx={{ fontWeight: 700, fontSize: '1.375rem', letterSpacing: '-0.03em', color: '#fff', lineHeight: 1.2 }}
@@ -512,7 +529,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     href="/dashboard/profile"
                                     variant="outlined"
                                     size="small"
-                                    startIcon={<UserAvatar fullName={userSummary.fullName} email={userSummary.email} size={28} />}
+                                    startIcon={<UserAvatar fullName={userSummary.fullName} email={userSummary.email} avatarUrl={userSummary.avatarUrl} size={28} />}
                                     sx={{
                                         borderRadius: 999,
                                         py: 0.75,
@@ -533,7 +550,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </Box>
 
                     <Box sx={{ maxWidth: 1280, mx: 'auto', px: { xs: 1.5, sm: 2.5, lg: 3 }, py: { xs: 1.5, sm: 2, lg: 3 }, width: '100%', minWidth: 0 }}>
-                        <DashboardWalletExtras profileIncomplete={profileIncomplete} />
+                        <DashboardWalletExtras
+                            profileIncomplete={profileIncomplete}
+                            hasCloudBackup={Boolean(userSummary?.hasCloudBackup)}
+                            hasCompletedDeposit={Boolean(userSummary?.hasCompletedDeposit)}
+                        />
                         {profileIncomplete && (
                             <Paper
                                 component={Link}

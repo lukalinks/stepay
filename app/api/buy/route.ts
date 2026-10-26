@@ -12,6 +12,9 @@ import { saveDepositPhoneDetails } from '@/lib/user-phone';
 import { StellarService } from '@/lib/stellar';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
+import { prepareUsdcDepositWallet } from '@/lib/usdc-deposit-ready';
+import { quoteWalletActivation } from '@/lib/wallet-activation';
+import { assertPlatformDepositLiquidity, DEPOSIT_UNAVAILABLE_MESSAGE } from '@/lib/liquidity';
 
 const schema = z.object({
     amount: z.coerce.number().min(1),
@@ -101,14 +104,77 @@ export async function POST(request: Request) {
                 error: `Your first deposit must buy at least 1 XLM (about ${formatLocalCurrencyCode(Math.ceil(rates.xlm_buy), market.countryCode)}).`,
             }, { status: 400 });
         }
-        if (!accountExists && asset === 'usdc') {
-            // Allowed — credit flow creates the Stellar account with minimum XLM reserve first.
+
+        const activation = await quoteWalletActivation(walletPublic, asset, rates);
+        const chargeAmount = amount + activation.fiat;
+
+        // Do not collect mobile money unless the platform wallet can credit crypto.
+        try {
+            await assertPlatformDepositLiquidity({
+                asset,
+                amountCrypto,
+                activationXlm: activation.xlm,
+            });
+        } catch (liqErr) {
+            const msg =
+                liqErr instanceof Error && liqErr.message
+                    ? liqErr.message
+                    : DEPOSIT_UNAVAILABLE_MESSAGE;
+            return NextResponse.json({ success: false, error: msg, code: 'liquidity' }, { status: 503 });
+        }
+
+        // Soft idempotency: reuse a recent identical PENDING collection instead of charging twice.
+        const recentDup = await sql`
+            SELECT reference, activation_xlm, activation_fiat
+            FROM transactions
+            WHERE user_id = ${userId}
+              AND type = 'BUY'
+              AND status = 'PENDING'
+              AND asset = ${asset}
+              AND amount_fiat = ${amount}
+              AND created_at > NOW() - INTERVAL '3 minutes'
+            ORDER BY created_at DESC
+            LIMIT 1
+        `;
+        const dup = recentDup[0] as
+            | { reference: string; activation_xlm: number; activation_fiat: number }
+            | undefined;
+        if (dup?.reference) {
+            return NextResponse.json({
+                success: true,
+                reference: dup.reference,
+                activation:
+                    Number(dup.activation_fiat) > 0
+                        ? {
+                              xlm: Number(dup.activation_xlm),
+                              fiat: Number(dup.activation_fiat),
+                              label: 'Network setup',
+                          }
+                        : null,
+                chargeAmount: amount + Number(dup.activation_fiat || 0),
+                reused: true,
+                message: 'Payment request already sent. Approve on your phone to complete.',
+            });
+        }
+
+        if (asset === 'usdc') {
+            const prepared = await prepareUsdcDepositWallet(userId);
+            // Trustline can finish after payment — only block missing wallet/user.
+            if (!prepared.ok && (prepared.code === 'no_wallet' || prepared.code === 'no_user')) {
+                return NextResponse.json(
+                    { success: false, error: prepared.error, code: prepared.code },
+                    { status: 400 }
+                );
+            }
         }
 
         const reference = `REF-${randomBytes(12).toString('hex')}`;
 
         const txRows = await sql`
-            INSERT INTO transactions (user_id, type, amount_fiat, amount_xlm, status, reference, asset)
+            INSERT INTO transactions (
+                user_id, type, amount_fiat, amount_xlm, status, reference, asset,
+                activation_xlm, activation_fiat
+            )
             VALUES (
                 ${userId},
                 'BUY',
@@ -116,7 +182,9 @@ export async function POST(request: Request) {
                 ${amountCrypto},
                 'PENDING',
                 ${reference},
-                ${asset}
+                ${asset},
+                ${activation.xlm},
+                ${activation.fiat}
             )
             RETURNING *
         `;
@@ -127,7 +195,7 @@ export async function POST(request: Request) {
 
         try {
             await LencoService.createCollection({
-                amount,
+                amount: chargeAmount,
                 phone,
                 operator: operator ?? 'mtn',
                 reference,
@@ -151,7 +219,13 @@ export async function POST(request: Request) {
         return NextResponse.json({
             success: true,
             reference,
-            message: `Payment request sent! Check your phone to approve. ${asset.toUpperCase()} will be sent once payment is confirmed.`,
+            activation: activation.required
+                ? { xlm: activation.xlm, fiat: activation.fiat, label: activation.label }
+                : null,
+            chargeAmount,
+            message: activation.required
+                ? `Payment request sent (includes one-time network setup of ${formatLocalCurrencyCode(activation.fiat, market.countryCode)}). Approve on your phone — ${asset.toUpperCase()} and setup XLM credit after confirmation.`
+                : `Payment request sent! Check your phone to approve. ${asset.toUpperCase()} will be sent once payment is confirmed.`,
         });
     } catch (error: unknown) {
         if (error instanceof RateLimitError) {

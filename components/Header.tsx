@@ -6,11 +6,12 @@ import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { Logo } from './Logo';
+import { BackButton } from './BackButton';
 
 interface HeaderProps {
   /** Right-side content (e.g. nav links, menu button) */
   right?: React.ReactNode;
-  /** Show "← Back" link (for secondary pages) */
+  /** Show back control (for secondary pages) */
   showBack?: boolean;
   /** Max width of inner content: 'full' | 'content' | 'narrow' */
   maxWidth?: 'full' | 'content' | 'narrow';
@@ -69,42 +70,29 @@ export function Header({
             mx: 'auto',
           }}
         >
-          <Button
-            component={Link}
-            href="/"
-            disableRipple
-            sx={{
-              minWidth: 40,
-              minHeight: 40,
-              p: 1,
-              m: -1,
-              borderRadius: 2,
-              color: 'text.primary',
-              textTransform: 'none',
-              '&:hover': { bgcolor: 'transparent', opacity: 0.85 },
-            }}
-          >
-            <span className={logoClassName}>
-              <Logo iconOnly={false} size={logoSize} variant="light" />
-            </span>
-          </Button>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
-            {showBack && (
-              <Button
-                component={Link}
-                href="/"
-                variant="text"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 500,
-                  '&:hover': { color: 'primary.main', bgcolor: 'action.hover' },
-                }}
-              >
-                ← Back
-              </Button>
-            )}
-            {right}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {showBack && <BackButton href="/" variant="light" ariaLabel="Back to home" />}
+            <Button
+              component={Link}
+              href="/"
+              disableRipple
+              sx={{
+                minWidth: 40,
+                minHeight: 40,
+                p: 1,
+                m: -1,
+                borderRadius: 2,
+                color: 'text.primary',
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'transparent', opacity: 0.85 },
+              }}
+            >
+              <span className={logoClassName}>
+                <Logo iconOnly={false} size={logoSize} variant="light" />
+              </span>
+            </Button>
           </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>{right}</Box>
         </Box>
       </Toolbar>
     </AppBar>

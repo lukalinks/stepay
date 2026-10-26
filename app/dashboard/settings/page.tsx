@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 import { WalletSecretPanel } from '@/components/wallet/WalletSecretPanel';
+import { Sep10WalletProve } from '@/components/wallet/Sep10WalletProve';
 import { CloudBackupSettings } from '@/components/wallet/CloudBackupSettings';
 import { dash } from '@/lib/dashboard-ui';
 import { isStaleSessionAfterSignup, syncClientAccountSession } from '@/lib/client-account-sync';
-import { clearAccountLocalState } from '@/lib/client-wallet';
-
 interface SettingsProfile {
     userId?: string;
     email?: string;
@@ -36,9 +35,12 @@ export default function SettingsPage() {
                 if (!data) return;
                 if (typeof data.userId === 'string') {
                     if (isStaleSessionAfterSignup(data.userId)) {
-                        clearAccountLocalState();
+                        const emailQs =
+                            typeof data.email === 'string' && data.email.includes('@')
+                                ? `&email=${encodeURIComponent(data.email)}`
+                                : '';
                         void fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
-                            window.location.href = '/login?error=session';
+                            window.location.href = `/login?error=session${emailQs}`;
                         });
                         return;
                     }
@@ -65,9 +67,9 @@ export default function SettingsPage() {
         return (
             <div className="py-12 text-center text-white/45">
                 <p>Could not load settings.</p>
-                <Link href="/dashboard" className={`mt-2 inline-block ${dash.accentLink}`}>
-                    Back to overview
-                </Link>
+                <div className="mt-3 flex justify-center">
+                    <BackButton href="/dashboard" label="Back to overview" variant="dark" />
+                </div>
             </div>
         );
     }
@@ -85,6 +87,9 @@ export default function SettingsPage() {
                 walletCustody={profile.walletCustody}
                 accountEmail={profile.email}
             />
+            {profile.walletCustody !== 'hosted' && (
+                <Sep10WalletProve serverWalletPublic={profile.walletPublic} />
+            )}
         </div>
     );
 }

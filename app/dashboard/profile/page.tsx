@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { UserCircle, Mail, Phone, MapPin, CreditCard, Loader2, Pencil, Settings, CheckCircle2 } from 'lucide-react';
+import { UserCircle, Mail, Phone, MapPin, CreditCard, Loader2, Pencil, Settings, CheckCircle2, Globe2 } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 import { Message } from '@/components/Message';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { UserAvatar } from '@/components/UserAvatar';
+import { AvatarUploadButton } from '@/components/profile/AvatarUploadButton';
 import { dash } from '@/lib/dashboard-ui';
-import { getMarket } from '@/lib/markets';
+import { getMarket, marketCashHelperText } from '@/lib/markets';
 
 interface ProfileData {
     fullName?: string;
@@ -18,6 +20,7 @@ interface ProfileData {
     idDocumentType?: string;
     idDocumentNumber?: string;
     isProfileComplete?: boolean;
+    avatarUrl?: string | null;
 }
 
 function ProfileField({
@@ -74,9 +77,9 @@ export default function ProfilePage() {
         return (
             <div className={`${dash.errorPanel} mt-8`}>
                 <p className="text-white/55 mb-4">Could not load your profile.</p>
-                <Link href="/dashboard" className={dash.cta}>
-                    Back to overview
-                </Link>
+                <div className="flex justify-center">
+                    <BackButton href="/dashboard" label="Back to overview" variant="dark" />
+                </div>
             </div>
         );
     }
@@ -92,22 +95,38 @@ export default function ProfilePage() {
             <DashboardCard noPadding bodyClassName="p-0">
                 <div className={`${dash.cardHeader} !items-start sm:!items-center`}>
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <UserAvatar fullName={profile.fullName} email={profile.email} size={48} />
-                        <div className="min-w-0">
+                        <UserAvatar
+                            fullName={profile.fullName}
+                            email={profile.email}
+                            avatarUrl={profile.avatarUrl}
+                            size={56}
+                        />
+                        <div className="min-w-0 space-y-1">
                             <h2 className={`${dash.cardTitle} !text-base sm:!text-lg`}>
                                 {profile.fullName?.trim() || 'Your account'}
                             </h2>
                             <p className={dash.cardSubtitle}>{profile.email || 'No email on file'}</p>
+                            <p className="text-sm text-white/70">
+                                {market.flagEmoji} {market.countryName}
+                            </p>
                             {profile.isProfileComplete ? (
-                                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[var(--brand-accent-muted)] px-2 py-0.5 text-[0.6875rem] font-semibold text-[var(--brand-accent)] ring-1 ring-[var(--brand-accent-border)]">
+                                <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--brand-accent-muted)] px-2 py-0.5 text-[0.6875rem] font-semibold text-[var(--brand-accent)] ring-1 ring-[var(--brand-accent-border)]">
                                     <CheckCircle2 className="h-3 w-3" />
                                     Profile complete
                                 </span>
                             ) : (
-                                <span className="mt-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-amber-400 ring-1 ring-amber-500/20">
+                                <span className="mt-1 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-amber-400 ring-1 ring-amber-500/20">
                                     Incomplete
                                 </span>
                             )}
+                            <div className="pt-1">
+                                <AvatarUploadButton
+                                    hasAvatar={Boolean(profile.avatarUrl)}
+                                    onChanged={(avatarUrl) =>
+                                        setProfile((p) => (p ? { ...p, avatarUrl } : p))
+                                    }
+                                />
+                            </div>
                         </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
@@ -123,7 +142,24 @@ export default function ProfilePage() {
                 </div>
             </DashboardCard>
 
-            <DashboardCard title="Account details" subtitle="Personal and verification information" noPadding bodyClassName="px-5 sm:px-6">
+            <DashboardCard title="Country" noPadding bodyClassName="px-5 sm:px-6 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl" aria-hidden>
+                            {market.flagEmoji}
+                        </span>
+                        <p className="text-sm font-semibold text-white">
+                            {market.countryName} · {marketCashHelperText(market)}
+                        </p>
+                    </div>
+                    <Link href={editHref} className={dash.ctaSecondary}>
+                        <Globe2 className="h-4 w-4" />
+                        Change
+                    </Link>
+                </div>
+            </DashboardCard>
+
+            <DashboardCard title="Details" noPadding bodyClassName="px-5 sm:px-6">
                 <ProfileField icon={UserCircle} label="Full name" value={profile.fullName} />
                 <ProfileField icon={Mail} label="Email" value={profile.email} />
                 <ProfileField icon={Phone} label="Phone" value={profile.phone} />

@@ -24,7 +24,7 @@ export type SendPayload = {
     to?: string;
     phone?: string;
     amount: number;
-    asset: 'xlm' | 'usdc';
+    asset: 'xlm' | 'usdc' | 'usdt0';
     memo?: string;
     checkoutToken?: string;
     requestToken?: string;
@@ -46,10 +46,16 @@ export async function validateSend(
     const user = await loadUserWalletRow(userId);
     if (!user) throw new Error('User not found');
 
+    if (payload.asset === 'usdt0' && payload.mode === 'phone') {
+        throw new Error('USDT0 can only be sent to a Stellar address. Phone transfers use USDC.');
+    }
+
     const balance =
         payload.asset === 'usdc'
             ? await StellarService.getUSDCBalance(user.wallet_public)
-            : await StellarService.getBalance(user.wallet_public);
+            : payload.asset === 'usdt0'
+              ? await StellarService.getUSDT0Balance(user.wallet_public)
+              : await StellarService.getBalance(user.wallet_public);
 
     if (Number(balance) < payload.amount) {
         throw new Error(`Insufficient ${payload.asset.toUpperCase()} balance. You have ${balance}.`);
@@ -60,6 +66,9 @@ export async function validateSend(
     }
     if (payload.asset === 'usdc' && payload.amount < 1) {
         throw new Error('Minimum 1 USDC to send.');
+    }
+    if (payload.asset === 'usdt0' && payload.amount < 1) {
+        throw new Error('Minimum 1 USDT0 to send.');
     }
 
     if (payload.checkoutToken && payload.mode !== 'address') {
@@ -112,6 +121,9 @@ export async function executeSend(
     const secret = await getUserWalletSecret(userId);
 
     if (payload.mode === 'phone' && !validation.destAddress) {
+        if (payload.asset === 'usdt0') {
+            throw new Error('USDT0 can only be sent to a Stellar address.');
+        }
         const pending = await executePendingPhoneTransfer({
             senderId: userId,
             senderSecret: secret,
@@ -147,7 +159,9 @@ export async function executeSend(
         txHash =
             payload.asset === 'usdc'
                 ? await StellarService.sendUSDC(secret, destAddress, amountStr, payload.memo)
-                : await StellarService.sendXLM(secret, destAddress, amountStr, payload.memo);
+                : payload.asset === 'usdt0'
+                  ? await StellarService.sendUSDT0(secret, destAddress, amountStr, payload.memo)
+                  : await StellarService.sendXLM(secret, destAddress, amountStr, payload.memo);
     } catch (stellarError: unknown) {
         throw stellarError;
     }
@@ -365,7 +379,7 @@ export function parseSendPayload(body: Record<string, unknown>): SendPayload {
     const to = typeof bodyRaw.to === 'string' ? bodyRaw.to : '';
     const phone = typeof bodyRaw.phone === 'string' ? bodyRaw.phone : typeof bodyRaw.to === 'string' && mode === 'phone' ? bodyRaw.to : '';
     const amount = Number(bodyRaw.amount);
-    const asset = bodyRaw.asset === 'xlm' ? 'xlm' : 'usdc';
+    const asset = bodyRaw.asset === 'xlm' ? 'xlm' : bodyRaw.asset === 'usdt0' ? 'usdt0' : 'usdc';
     const memo = typeof bodyRaw.memo === 'string' && bodyRaw.memo.trim() ? bodyRaw.memo.trim() : undefined;
     if (memo && Buffer.byteLength(memo, 'utf8') > 28) {
         throw new Error('Memo must be 28 bytes or fewer.');
@@ -379,9 +393,15 @@ export function parseSendPayload(body: Record<string, unknown>): SendPayload {
     if (mode === 'address' && !to) {
         throw new Error('Enter a Stellar address.');
     }
+    if (asset === 'usdt0' && mode === 'phone') {
+        throw new Error('USDT0 can only be sent to a Stellar address. Phone transfers use USDC.');
+    }
     const checkoutToken = typeof bodyRaw.checkoutToken === 'string' ? bodyRaw.checkoutToken.trim() : undefined;
     const requestToken = typeof bodyRaw.requestToken === 'string' ? bodyRaw.requestToken.trim() : undefined;
     const paySlug = typeof bodyRaw.paySlug === 'string' ? bodyRaw.paySlug.trim() : undefined;
+    if (asset === 'usdt0' && (checkoutToken || requestToken || paySlug)) {
+        throw new Error('Checkouts and pay links settle in USDC.');
+    }
     return {
         mode,
         to: mode === 'address' ? to : undefined,

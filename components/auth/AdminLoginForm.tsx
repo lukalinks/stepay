@@ -9,11 +9,15 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { AuthFormError } from '@/components/auth/AuthAlert';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { BackButton } from '@/components/BackButton';
 import { authTextFieldSx, BRAND, primaryCtaSx } from '@/lib/brand';
 import { confirmDeliveryHint } from '@/lib/confirm-ui';
 import { adminLoginEmail } from '@/lib/hosts';
+import { safeInternalPath } from '@/lib/safe-redirect';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
+type AdminLoginMode = 'otp' | 'password';
 type AdminLoginStep = 'request' | 'verify';
 
 function toFriendlyError(msg?: string): string {
@@ -21,22 +25,37 @@ function toFriendlyError(msg?: string): string {
     const m = msg.toLowerCase();
     if (m.includes('incorrect') || m.includes('verification code')) return msg;
     if (m.includes('expired') || m.includes('too many')) return msg;
-    if (m.includes('rate limit') || m.includes('too many attempts')) return 'Too many attempts. Please wait a few minutes and try again.';
+    if (m.includes('rate limit') || m.includes('too many attempts')) {
+        return 'Too many attempts. Please wait a few minutes and try again.';
+    }
     return msg;
 }
 
 export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string }) {
     const router = useRouter();
-    const email = adminLoginEmail();
+    const platformEmail = adminLoginEmail();
+    const [mode, setMode] = useState<AdminLoginMode>('otp');
     const [step, setStep] = useState<AdminLoginStep>('request');
     const [loginId, setLoginId] = useState('');
     const [otpCode, setOtpCode] = useState('');
+    const [staffEmail, setStaffEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [deliveryHint, setDeliveryHint] = useState<string | undefined>();
     const [devHint, setDevHint] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const canVerify = otpCode.replace(/\D/g, '').length === 6;
+
+    const switchMode = (next: AdminLoginMode) => {
+        setMode(next);
+        setError(null);
+        setStep('request');
+        setOtpCode('');
+        setPassword('');
+        setDevHint(undefined);
+        setDeliveryHint(undefined);
+    };
 
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,7 +65,7 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
             const res = await fetch('/api/auth/admin/login/intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: platformEmail }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
@@ -59,7 +78,7 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
                 setError(toFriendlyError(data.error));
             }
         } catch {
-            setError('We couldn\'t reach our servers. Please check your connection and try again.');
+            setError("We couldn't reach our servers. Please check your connection and try again.");
         } finally {
             setIsLoading(false);
         }
@@ -81,14 +100,14 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const target = redirectTo.startsWith('/') ? redirectTo : '/admin';
+                const target = safeInternalPath(redirectTo, '/admin');
                 router.refresh();
                 router.push(target);
             } else {
                 setError(toFriendlyError(data.error));
             }
         } catch {
-            setError('We couldn\'t reach our servers. Please check your connection and try again.');
+            setError("We couldn't reach our servers. Please check your connection and try again.");
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +120,7 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
             const res = await fetch('/api/auth/admin/login/intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: platformEmail }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
@@ -119,29 +138,150 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
         }
     };
 
+    const handlePasswordLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/auth/admin/login/password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: staffEmail, password }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                const target = safeInternalPath(redirectTo, '/admin');
+                router.refresh();
+                router.push(target);
+            } else {
+                setError(toFriendlyError(data.error));
+            }
+        } catch {
+            setError("We couldn't reach our servers. Please check your connection and try again.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const modeToggle = (
+        <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+            {(
+                [
+                    { id: 'otp' as const, label: 'Superadmin' },
+                    { id: 'password' as const, label: 'Team password' },
+                ] as const
+            ).map((tab) => (
+                <Button
+                    key={tab.id}
+                    type="button"
+                    variant={mode === tab.id ? 'contained' : 'outlined'}
+                    onClick={() => switchMode(tab.id)}
+                    disabled={isLoading}
+                    sx={{
+                        flex: 1,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        borderRadius: 2,
+                        ...(mode === tab.id
+                            ? {
+                                  bgcolor: BRAND.accent,
+                                  color: BRAND.accentContrast,
+                                  '&:hover': { bgcolor: BRAND.accent },
+                              }
+                            : {
+                                  borderColor: 'rgba(255,255,255,0.2)',
+                                  color: BRAND.textSubtle,
+                              }),
+                    }}
+                >
+                    {tab.label}
+                </Button>
+            ))}
+        </Stack>
+    );
+
+    if (mode === 'password') {
+        return (
+            <AuthShell
+                title="Admin login"
+                subtitle="Ops and Support — sign in with the email and password from your invite."
+            >
+                {modeToggle}
+                <Box component="form" onSubmit={handlePasswordLogin} noValidate>
+                    <Stack spacing={2.25}>
+                        <TextField
+                            label="Work email"
+                            type="email"
+                            value={staffEmail}
+                            onChange={(e) => setStaffEmail(e.target.value)}
+                            autoComplete="username"
+                            required
+                            fullWidth
+                            sx={authTextFieldSx}
+                        />
+                        <TextField
+                            label="Password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                            fullWidth
+                            sx={authTextFieldSx}
+                        />
+                        <AuthFormError>{error}</AuthFormError>
+                        <Button type="submit" variant="contained" disabled={isLoading} fullWidth sx={primaryCtaSx}>
+                            {isLoading ? (
+                                <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} />
+                            ) : (
+                                'Sign in'
+                            )}
+                        </Button>
+                        <Typography sx={{ fontSize: '0.8125rem', color: BRAND.textSubtle, textAlign: 'center' }}>
+                            <Link href="/forgot-password" style={{ color: BRAND.accent, fontWeight: 600 }}>
+                                Forgot password?
+                            </Link>
+                        </Typography>
+                    </Stack>
+                </Box>
+            </AuthShell>
+        );
+    }
+
     return (
         <AuthShell
             title={step === 'verify' ? 'Enter verification code' : 'Admin login'}
             subtitle={
                 step === 'verify'
                     ? deliveryHint || 'Enter the 6-digit code sent to your admin email.'
-                    : 'We\'ll email a one-time code to the admin account.'
+                    : "We'll email a one-time code to the platform superadmin account."
             }
         >
+            {step === 'request' && modeToggle}
             {step === 'request' ? (
                 <Box component="form" onSubmit={handleSendCode} noValidate>
                     <Stack spacing={2.25}>
                         <TextField
                             label="Admin email"
                             type="email"
-                            value={email}
+                            value={platformEmail}
                             disabled
                             fullWidth
                             sx={authTextFieldSx}
                         />
                         <AuthFormError>{error}</AuthFormError>
-                        <Button type="submit" variant="contained" disabled={isLoading} fullWidth sx={{ ...primaryCtaSx, mt: 0.5 }}>
-                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Send login code'}
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={isLoading}
+                            fullWidth
+                            sx={{ ...primaryCtaSx, mt: 0.5 }}
+                        >
+                            {isLoading ? (
+                                <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} />
+                            ) : (
+                                'Send login code'
+                            )}
                         </Button>
                     </Stack>
                 </Box>
@@ -161,7 +301,10 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
                                 }}
                             >
                                 Dev: verification code is{' '}
-                                <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, color: BRAND.accent }}>
+                                <Box
+                                    component="span"
+                                    sx={{ fontFamily: 'monospace', fontWeight: 700, color: BRAND.accent }}
+                                >
                                     {devHint}
                                 </Box>
                             </Typography>
@@ -185,23 +328,30 @@ export function AdminLoginForm({ redirectTo = '/admin' }: { redirectTo?: string 
                             slotProps={{ formHelperText: { sx: { color: BRAND.textSubtle, mx: 0, mt: 0.75 } } }}
                         />
                         <AuthFormError>{error}</AuthFormError>
-                        <Button type="submit" variant="contained" disabled={isLoading || !canVerify} fullWidth sx={primaryCtaSx}>
-                            {isLoading ? <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} /> : 'Continue'}
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={isLoading || !canVerify}
+                            fullWidth
+                            sx={primaryCtaSx}
+                        >
+                            {isLoading ? (
+                                <CircularProgress size={24} sx={{ color: BRAND.accentContrast }} />
+                            ) : (
+                                'Continue'
+                            )}
                         </Button>
-                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between' }}>
-                            <Button
-                                type="button"
-                                variant="text"
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                            <BackButton
+                                label="Back"
+                                variant="dark"
                                 disabled={isLoading}
                                 onClick={() => {
                                     setStep('request');
                                     setOtpCode('');
                                     setError(null);
                                 }}
-                                sx={{ color: BRAND.textSubtle, textTransform: 'none' }}
-                            >
-                                Back
-                            </Button>
+                            />
                             <Button
                                 type="button"
                                 variant="text"

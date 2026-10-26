@@ -3,6 +3,11 @@ import { sql } from '@/lib/db';
 import { invalidateRatesCache } from '@/lib/rates';
 import { canChangeSettings, getAdminContext } from '@/lib/admin-auth';
 import { logAdminAction } from '@/lib/admin-audit';
+import {
+    getAccessSettings,
+    notifyWaitlistOnLaunch,
+    setPublicLaunch,
+} from '@/lib/access-control';
 
 /** GET - fetch current settings */
 export async function GET(request: Request) {
@@ -12,7 +17,7 @@ export async function GET(request: Request) {
     }
     try {
         const rows = await sql`
-            SELECT key, value_json FROM platform_settings WHERE key IN ('rates', 'fee', 'limits')
+            SELECT key, value_json FROM platform_settings WHERE key IN ('rates', 'fee', 'limits', 'access')
         `;
         const obj: Record<string, unknown> = {};
         for (const row of rows as unknown as { key: string; value_json: string }[]) {
@@ -22,6 +27,7 @@ export async function GET(request: Request) {
                 obj[row.key] = {};
             }
         }
+        const access = await getAccessSettings();
         return NextResponse.json({
             rates: obj.rates ?? { xlm_buy: 3.5, xlm_sell: 3.5, usdc_buy: 25, usdc_sell: 25 },
             fee: obj.fee ?? { buy_percent: 0, sell_percent: 0 },
@@ -30,6 +36,9 @@ export async function GET(request: Request) {
                 max_deposit_zmw: (obj.limits as Record<string, number>)?.max_deposit_zmw ?? 50000,
                 min_withdraw_zmw: (obj.limits as Record<string, number>)?.min_withdraw_zmw ?? 4,
                 max_withdraw_zmw: (obj.limits as Record<string, number>)?.max_withdraw_zmw ?? 50000,
+            },
+            access: {
+                publicLaunch: access.publicLaunch,
             },
         });
     } catch (err) {
@@ -49,7 +58,16 @@ export async function PATCH(request: Request) {
     }
     try {
         const body = await request.json().catch(() => ({}));
-        const { rates, fee, limits } = body;
+        const { rates, fee, limits, access } = body;
+        let waitlistNotify: { sent: number; failed: number } | null = null;
+
+        if (access && typeof access === 'object' && typeof access.publicLaunch === 'boolean') {
+            const prev = await getAccessSettings();
+            await setPublicLaunch(access.publicLaunch);
+            if (!prev.publicLaunch && access.publicLaunch) {
+                waitlistNotify = await notifyWaitlistOnLaunch();
+            }
+        }
 
         if (rates && typeof rates === 'object') {
             const merged = {
@@ -99,10 +117,16 @@ export async function PATCH(request: Request) {
         await logAdminAction({
             adminUserId: ctx.userId,
             action: 'settings.update',
-            details: { rates: !!rates, fee: !!fee, limits: !!limits },
+            details: {
+                rates: !!rates,
+                fee: !!fee,
+                limits: !!limits,
+                access: !!access,
+                waitlistNotify,
+            },
             ip: ctx.ip,
         });
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, waitlistNotify });
     } catch (err) {
         console.error('Admin settings PATCH:', err);
         return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });

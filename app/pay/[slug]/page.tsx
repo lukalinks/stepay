@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Wallet } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { PayQrCode } from '@/components/dashboard/PayQrCode';
 import { whatsAppShareUrl } from '@/lib/share';
@@ -25,6 +25,7 @@ export default function PayLinkPage() {
 
     const payUrl = typeof window !== 'undefined' ? window.location.href : '';
     const amount = info?.amount != null ? Number(info.amount) : null;
+    const sep7Uri = typeof info?.sep7Uri === 'string' ? info.sep7Uri : null;
     const sendHref = `/dashboard/send?pay=${slug}${amount ? `&amount=${amount}` : ''}&asset=${info?.asset ?? 'usdc'}`;
 
     return (
@@ -52,6 +53,11 @@ export default function PayLinkPage() {
                         <Link href={`/login?next=${encodeURIComponent(sendHref)}`} className={`${dash.ctaFull} mb-3`}>
                             <Send className="h-5 w-5" /> Pay with Stepay
                         </Link>
+                        {sep7Uri && (
+                            <a href={sep7Uri} className={`${dash.ctaSecondary} inline-flex w-full mb-3 justify-center`}>
+                                <Wallet className="h-5 w-5" /> Pay with Stellar wallet
+                            </a>
+                        )}
                         <a
                             href={whatsAppShareUrl(`Pay ${info?.recipientName} on Stepay: ${payUrl}`)}
                             target="_blank"

@@ -26,29 +26,70 @@ export function localPhoneDisplay(phone: string): string {
 }
 
 export function phonesMatch(a: string, b: string): boolean {
-    return normalizeZambianPhone(a) === normalizeZambianPhone(b);
+    try {
+        return normalizePhoneForMarket(a) === normalizePhoneForMarket(b);
+    } catch {
+        return normalizeZambianPhone(a) === normalizeZambianPhone(b);
+    }
 }
 
+function digitsOnly(phone: string): string {
+    return phone.replace(/\s+/g, '').replace(/^\+/, '').replace(/\D/g, '');
+}
+
+/** Normalize to country-code + national digits (no +). */
 export function normalizePhoneForMarket(phone: string, countryCode?: string | null): string {
     const market = getMarket(countryCode);
-    if (market.countryCode === 'ZM') return normalizeZambianPhone(phone);
-    throw new Error('Phone normalization is not configured for this country yet.');
+    const cc = market.phoneCountryCode;
+    let digits = digitsOnly(phone);
+
+    // MoneyGram-only / unknown dial plans — keep international digits as entered.
+    if (!cc) {
+        return digits.slice(0, 15);
+    }
+
+    const len = market.phoneNationalLength;
+
+    if (digits.startsWith(cc)) {
+        digits = digits.slice(0, cc.length + len);
+        return digits;
+    }
+
+    // Strip leading 0 (national trunk)
+    if (digits.startsWith('0')) {
+        digits = digits.slice(1);
+    }
+
+    return `${cc}${digits}`.slice(0, cc.length + len);
 }
 
 export function isValidPhoneForMarket(phone: string, countryCode?: string | null): boolean {
     const market = getMarket(countryCode);
-    if (market.countryCode === 'ZM') return isValidZambianPhone(phone);
-    return false;
+    const normalized = normalizePhoneForMarket(phone, countryCode);
+    if (!market.phoneCountryCode) {
+        return /^[0-9]{8,15}$/.test(normalized);
+    }
+    const re = new RegExp(`^${market.phoneCountryCode}[0-9]{${market.phoneNationalLength}}$`);
+    return re.test(normalized);
 }
 
 export function formatPhoneE164ForMarket(phone: string, countryCode?: string | null): string {
     const market = getMarket(countryCode);
-    if (market.countryCode === 'ZM') return formatZambianPhoneE164(phone);
-    throw new Error('Enter a valid mobile money number for your country.');
+    if (!isValidPhoneForMarket(phone, countryCode)) {
+        throw new Error(
+            market.phoneDialCode
+                ? `Enter a valid ${market.countryName} mobile number (${market.phoneNationalLength} digits after ${market.phoneDialCode}).`
+                : `Enter a valid phone number for ${market.countryName}.`
+        );
+    }
+    return `+${normalizePhoneForMarket(phone, countryCode)}`;
 }
 
 export function localPhoneDisplayForMarket(phone: string, countryCode?: string | null): string {
     const market = getMarket(countryCode);
-    if (market.countryCode === 'ZM') return localPhoneDisplay(phone);
+    const normalized = normalizePhoneForMarket(phone, countryCode);
+    if (normalized.startsWith(market.phoneCountryCode)) {
+        return normalized.slice(market.phoneCountryCode.length);
+    }
     return phone.replace(/\s+/g, '');
 }

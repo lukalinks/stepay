@@ -12,8 +12,9 @@ export async function createOutboundIntent(
     const prep = await prepareOutboundRequest(userId);
 
     if (type === 'SEND') {
-        const p = payload as { amount: number; asset: 'xlm' | 'usdc' };
-        await assertTierLimitsForUser(userId, Number(p.amount), p.asset === 'usdc' ? 'usdc' : 'xlm', 'send');
+        const p = payload as { amount: number; asset: 'xlm' | 'usdc' | 'usdt0' };
+        const sendAsset = p.asset === 'usdt0' ? 'usdt0' : p.asset === 'usdc' ? 'usdc' : 'xlm';
+        await assertTierLimitsForUser(userId, Number(p.amount), sendAsset, 'send');
     } else if (type === 'SELL') {
         const p = payload as { amount: number; asset: 'xlm' | 'usdc' };
         await assertTierLimitsForUser(userId, Number(p.amount), p.asset === 'usdc' ? 'usdc' : 'xlm', 'sell');

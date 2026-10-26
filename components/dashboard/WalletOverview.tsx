@@ -14,6 +14,8 @@ interface WalletOverviewProps {
     balance: {
         xlm: number | string;
         usdc: number | string;
+        usdt0?: number | string;
+        usdt0LocalEquiv?: number | string;
         xlmLocalEquiv?: number | string;
         usdcLocalEquiv?: number | string;
         xlmZmwEquiv?: number | string;
@@ -45,11 +47,13 @@ export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, bala
     const [showXlm, setShowXlm] = useState(Number(balance.xlm) > 0.01);
 
     const usdcVal = Number(balance.usdc) || 0;
+    const usdt0Val = Number(balance.usdt0) || 0;
     const xlmVal = Number(balance.xlm) || 0;
     const usdDisplay = balance.usdPrimary ?? usdcVal.toFixed(2);
     const localDisplay = balance.fiatTotal ?? balance.zmwTotal ?? portfolioLocal;
     const xlmLocal = balance.xlmLocalEquiv ?? balance.xlmZmwEquiv ?? '0';
     const usdcLocal = balance.usdcLocalEquiv ?? balance.usdcZmwEquiv ?? '0';
+    const usdt0Local = balance.usdt0LocalEquiv ?? '0';
 
     const copyAddr = async () => {
         if (!walletAddr || !navigator.clipboard) return;
@@ -136,6 +140,20 @@ export function WalletOverview({ portfolioLocal, localCurrency, walletAddr, bala
                     <div className="text-right">
                         <p className={compact ? 'text-xs font-semibold tabular-nums text-white' : 'text-sm font-semibold tabular-nums text-white'}>{formatNum(usdcVal)}</p>
                         <p className="text-[0.5625rem] text-white/40">{formatNum(Number(usdcLocal), 0)} {localCurrency}</p>
+                    </div>
+                </div>
+
+                <div className={`${dash.holdingRow} ${compact ? '!px-2.5 !py-2' : ''}`}>
+                    <div className={`flex items-center ${compact ? 'gap-2' : 'gap-2.5'}`}>
+                        <AssetIcon asset="usdt0" size="sm" />
+                        <div>
+                            <span className={compact ? 'text-xs font-semibold text-white' : 'text-sm font-semibold text-white'}>{assetDisplayLabel('usdt0')}</span>
+                            <p className="text-[0.5625rem] text-white/40">Receive and send</p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className={compact ? 'text-xs font-semibold tabular-nums text-white' : 'text-sm font-semibold tabular-nums text-white'}>{formatNum(usdt0Val)}</p>
+                        <p className="text-[0.5625rem] text-white/40">{formatNum(Number(usdt0Local), 0)} {localCurrency}</p>
                     </div>
                 </div>
 

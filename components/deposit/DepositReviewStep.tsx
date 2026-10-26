@@ -15,6 +15,8 @@ type DepositReviewStepProps = {
     currency: string;
     formatFiat: (amount: number) => string;
     rate: number;
+    activationFiat?: number;
+    activationXlm?: number;
     onConfirm: () => void;
     onCancel: () => void;
     isLoading?: boolean;
@@ -31,11 +33,14 @@ export function DepositReviewStep({
     currency,
     formatFiat,
     rate,
+    activationFiat = 0,
+    activationXlm = 0,
     onConfirm,
     onCancel,
     isLoading,
     error,
 }: DepositReviewStepProps) {
+    const totalPay = amount + (activationFiat > 0 ? activationFiat : 0);
     return (
         <div className="space-y-5">
             <div className={`${dash.panelInset} space-y-4 p-4`}>
@@ -46,16 +51,31 @@ export function DepositReviewStep({
 
                 <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
+                        <span className="text-white/50">Deposit</span>
+                        <span className="font-medium text-white tabular-nums">{formatFiat(amount)}</span>
+                    </div>
+                    {activationFiat > 0 && (
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-white/50">Network setup (one-time)</span>
+                            <span className="font-medium text-white tabular-nums">{formatFiat(activationFiat)}</span>
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3">
                         <span className="text-white/50">You pay</span>
-                        <span className="font-bold text-white tabular-nums">{formatFiat(amount)}</span>
+                        <span className="font-bold text-white tabular-nums">{formatFiat(totalPay)}</span>
                     </div>
                     <div className="flex items-center justify-center py-1">
                         <ArrowDownLeft className="h-4 w-4 text-[var(--brand-accent)]" />
                     </div>
                     <div className="flex items-center justify-between gap-3">
                         <span className="text-white/50">You receive</span>
-                        <span className="font-bold text-white tabular-nums">
+                        <span className="font-bold text-white tabular-nums text-right">
                             {cryptoAmount.toFixed(asset === 'usdc' ? 2 : 4)} {asset.toUpperCase()}
+                            {activationXlm > 0 ? (
+                                <span className="block text-xs font-normal text-white/50">
+                                    + {activationXlm.toFixed(2)} XLM (stays in wallet)
+                                </span>
+                            ) : null}
                         </span>
                     </div>
                     <div className={`${dash.divider} pt-3 space-y-2`}>
@@ -81,7 +101,9 @@ export function DepositReviewStep({
             </div>
 
             <p className={`${dash.hint} text-center`}>
-                A payment prompt will be sent to your phone. Approve it to complete your deposit.
+                {activationFiat > 0
+                    ? 'One-time network setup unlocks USDC. The XLM stays in your wallet for reserves. A payment prompt will be sent to your phone.'
+                    : 'A payment prompt will be sent to your phone. Approve it to complete your deposit.'}
             </p>
 
             {error && (

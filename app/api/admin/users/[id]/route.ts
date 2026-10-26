@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { canManageUsers, canRunOps, getAdminContext } from '@/lib/admin-auth';
 import { logAdminAction } from '@/lib/admin-audit';
+import { updateTeamRole } from '@/lib/admin-team';
 import { tryCompleteUserStuckOps } from '@/lib/recover-stuck-ops';
 
 export async function GET(
@@ -15,12 +16,20 @@ export async function GET(
 
     try {
         const rows = await sql`
-            SELECT id, email, phone_number, role, created_at, wallet_public, country_code, kyc_tier,
+            SELECT id, email, phone_number, phone_normalized, full_name, address,
+                   id_document_type, id_document_number, preferred_operator,
+                   role, created_at, updated_at, wallet_public, country_code, kyc_tier,
                    suspended, suspended_reason, session_token_version
             FROM users WHERE id = ${id} LIMIT 1
         `;
         const user = rows[0] as Record<string, unknown> | undefined;
         if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+        const fullName = String(user.full_name ?? '').trim();
+        const phone = String(user.phone_number ?? '').trim();
+        const address = String(user.address ?? '').trim();
+        const idDocumentNumber = String(user.id_document_number ?? '').trim();
+        const profileComplete = !!(fullName && phone.length >= 10 && address && idDocumentNumber);
 
         const [txRows, alertRows, checkoutCount] = await Promise.all([
             sql`
@@ -49,11 +58,19 @@ export async function GET(
                 id: user.id,
                 email: user.email ?? '—',
                 phone: user.phone_number ?? '—',
+                phoneNormalized: user.phone_normalized ?? null,
+                fullName: fullName || null,
+                address: address || null,
+                idDocumentType: user.id_document_type ?? null,
+                idDocumentNumber: idDocumentNumber || null,
+                preferredOperator: user.preferred_operator ?? null,
                 role: user.role || 'user',
                 createdAt: user.created_at,
+                updatedAt: user.updated_at ?? null,
                 wallet: user.wallet_public,
                 countryCode: user.country_code ?? 'ZM',
                 kycTier: user.kyc_tier ?? 'basic',
+                profileComplete,
                 suspended: !!user.suspended,
                 suspendedReason: user.suspended_reason,
             },
@@ -186,19 +203,17 @@ export async function PATCH(
 
         if (body.action === 'set_role' && ctx.role === 'admin') {
             const role = String(body.role || 'user');
-            const allowed = ['user', 'admin_support', 'admin_ops', 'admin'];
-            if (!allowed.includes(role)) {
-                return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+            try {
+                await updateTeamRole({
+                    actorId: ctx.userId,
+                    actorIp: ctx.ip,
+                    targetId: id,
+                    role,
+                });
+            } catch (roleErr) {
+                const msg = roleErr instanceof Error ? roleErr.message : 'Could not update role';
+                return NextResponse.json({ error: msg }, { status: 400 });
             }
-            await sql`UPDATE users SET role = ${role}, updated_at = NOW() WHERE id = ${id}`;
-            await logAdminAction({
-                adminUserId: ctx.userId,
-                action: 'user.set_role',
-                targetType: 'user',
-                targetId: id,
-                details: { role },
-                ip: ctx.ip,
-            });
             return NextResponse.json({ ok: true });
         }
 

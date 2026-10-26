@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography';
 import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar';
 import { WalletOverview } from '@/components/dashboard/WalletOverview';
 import { UserAvatar } from '@/components/UserAvatar';
+import { LandingPhoneFrame } from '@/components/landing/LandingPhoneFrame';
 import { BRAND } from '@/lib/brand';
 import { dash } from '@/lib/dashboard-ui';
 import {
@@ -22,68 +23,6 @@ import {
   LANDING_MOCK_TODAY_CHANGE,
   LANDING_MOCK_USER,
 } from '@/lib/landing-mock-data';
-
-const PHONE_W = 272;
-const PHONE_H = 460;
-
-function PhoneFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      sx={{
-        width: '100%',
-        maxWidth: PHONE_W,
-        mx: 'auto',
-        p: '7px',
-        borderRadius: '36px',
-        bgcolor: '#1a1a1a',
-        border: `1px solid ${BRAND.borderStrong}`,
-        boxShadow: `
-          0 32px 64px rgba(0,0,0,0.55),
-          inset 0 1px 0 rgba(255,255,255,0.12),
-          inset 0 -1px 0 rgba(0,0,0,0.4)
-        `,
-        pointerEvents: 'none',
-        userSelect: 'none',
-      }}
-    >
-      <Box
-        className="dashboard-grain"
-        sx={{
-          position: 'relative',
-          width: '100%',
-          height: PHONE_H,
-          borderRadius: '28px',
-          bgcolor: BRAND.bg,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          border: `1px solid ${BRAND.borderStrong}`,
-        }}
-      >
-        <Box
-          sx={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            px: 1.25,
-            pt: 0.5,
-            pb: 0.15,
-            bgcolor: BRAND.bg,
-          }}
-        >
-          <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: alpha('#fff', 0.5) }}>9:41</Typography>
-          <Box sx={{ width: 64, height: 18, borderRadius: 999, bgcolor: '#000', border: `1px solid ${BRAND.border}` }} />
-          <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: alpha('#fff', 0.5) }}>●●●</Typography>
-        </Box>
-        {children}
-        <Box sx={{ flexShrink: 0, py: 0.35, display: 'flex', justifyContent: 'center', bgcolor: BRAND.bg }}>
-          <Box sx={{ width: 72, height: 3, borderRadius: 999, bgcolor: alpha('#fff', 0.2) }} />
-        </Box>
-      </Box>
-    </Box>
-  );
-}
 
 function HomeAppBar() {
   return (
@@ -154,7 +93,7 @@ function HomeBottomNav() {
 /** Landing hero — dashboard home (/dashboard) in a compact phone frame. */
 export function LandingDashboardPreview() {
   return (
-    <PhoneFrame>
+    <LandingPhoneFrame>
       <HomeAppBar />
 
       <Box component="main" sx={{ flex: 1, minHeight: 0, overflow: 'hidden', bgcolor: BRAND.bg }}>
@@ -178,6 +117,6 @@ export function LandingDashboardPreview() {
       </Box>
 
       <HomeBottomNav />
-    </PhoneFrame>
+    </LandingPhoneFrame>
   );
 }

@@ -18,6 +18,7 @@ import { landing } from '@/lib/landing-ui';
 
 const NAV = [
   { label: 'How it works', href: '/#how' },
+  { label: 'Use cases', href: '/#use-cases' },
   { label: 'Features', href: '/#about' },
   { label: 'Developers', href: '/developers' },
   { label: 'FAQ', href: '/#faq' },
@@ -76,9 +77,9 @@ export function LandingHeader() {
           zIndex: 50,
           pt: 'max(12px, env(safe-area-inset-top))',
           pb: 1.5,
-          bgcolor: alpha(BRAND.bg, 0.82),
-          backdropFilter: 'blur(20px)',
-          borderBottom: `1px solid ${BRAND.border}`,
+          bgcolor: alpha(BRAND.bg, 0.72),
+          backdropFilter: 'blur(24px) saturate(1.4)',
+          borderBottom: `1px solid ${alpha('#fff', 0.06)}`,
         }}
       >
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>

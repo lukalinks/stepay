@@ -72,13 +72,13 @@ export function confirmActionFromIntentType(type: SignIntentType): 'send' | 'sel
 /** Enforce platform max single outbound crypto amount (ZMW equivalent rough check). */
 export async function assertSingleOutboundAmount(
     amount: number,
-    asset: 'xlm' | 'usdc',
+    asset: 'xlm' | 'usdc' | 'usdt0',
     kind: 'send' | 'sell' | 'swap'
 ): Promise<void> {
     const limits = await getLimits();
     const maxZmw = kind === 'sell' ? limits.max_withdraw_zmw : limits.max_deposit_zmw;
     const rates = await getRates();
-    const rate = asset === 'usdc' ? rates.usdc_sell : rates.xlm_sell;
+    const rate = asset === 'xlm' ? rates.xlm_sell : rates.usdc_sell;
     const zmwApprox = amount * rate;
     if (zmwApprox > maxZmw * 1.05) {
         throw new Error(`Amount exceeds the maximum of ${maxZmw} ZMW per transaction.`);
@@ -89,11 +89,11 @@ export async function assertSingleOutboundAmount(
 export async function assertTierLimitsForUser(
     userId: string,
     amount: number,
-    asset: 'xlm' | 'usdc',
+    asset: 'xlm' | 'usdc' | 'usdt0',
     kind: 'send' | 'sell' | 'swap'
 ): Promise<void> {
     const rates = await getRates();
-    const rate = asset === 'usdc' ? rates.usdc_sell : rates.xlm_sell;
+    const rate = asset === 'xlm' ? rates.xlm_sell : rates.usdc_sell;
     const zmwApprox = amount * rate;
     await assertTierOutboundLimit(userId, zmwApprox, kind);
     await assertSingleOutboundAmount(amount, asset, kind);

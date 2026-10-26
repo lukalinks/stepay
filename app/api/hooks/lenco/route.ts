@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
 import {
     claimPendingCollectionTransaction,
     findCollectionTransactionByReference,
     failCollectionTransactionByReference,
 } from '@/lib/deposit-claim';
-import { creditBuyDeposit, isLencoDepositPaid } from '@/lib/complete-buy-deposit';
+import {
+    creditBuyDeposit,
+    expectedLencoAmount,
+    isLencoDepositPaid,
+    tryCompleteBuyDeposit,
+} from '@/lib/complete-buy-deposit';
 import { creditCheckoutMobileMoney } from '@/lib/checkout-mobile-money';
 import { notifyDepositFailed } from '@/lib/deposit-notify';
 import { createHmac, createHash, timingSafeEqual } from 'crypto';
@@ -105,6 +109,18 @@ export async function POST(request: Request) {
         }
 
         if (isFailed && isCollection) {
+            const existing = await findCollectionTransactionByReference(reference);
+            // Never fail an in-flight PROCESSING credit from a late/duplicate fail event.
+            if (existing && String(existing.status) === 'PROCESSING') {
+                if (String(existing.type) === 'BUY') {
+                    const stillPaid = await isLencoDepositPaid(reference, expectedLencoAmount(existing));
+                    if (stillPaid) {
+                        await tryCompleteBuyDeposit(reference);
+                    }
+                }
+                return NextResponse.json({ received: true });
+            }
+
             const failedTx = await failCollectionTransactionByReference(reference);
             if (failedTx && String(failedTx.type) === 'BUY') {
                 await notifyDepositFailed(
@@ -116,18 +132,23 @@ export async function POST(request: Request) {
         }
 
         if (isSuccess && isCollection) {
+            const skipVerification = process.env.LENCO_SKIP_DEPOSIT_VERIFICATION === 'true';
             const existing = await findCollectionTransactionByReference(reference);
             if (existing) {
                 const st = String(existing.status);
-                if (st === 'COMPLETED' || st === 'PROCESSING') {
+                if (st === 'COMPLETED') {
+                    return NextResponse.json({ received: true });
+                }
+                if (st === 'PROCESSING' || st === 'FAILED') {
+                    if (String(existing.type) === 'BUY') {
+                        await tryCompleteBuyDeposit(reference, { skipLencoVerification: skipVerification });
+                    }
                     return NextResponse.json({ received: true });
                 }
             }
 
-            const skipVerification = process.env.LENCO_SKIP_DEPOSIT_VERIFICATION === 'true';
             if (!skipVerification) {
-                const expectedFiat =
-                    existing && existing.amount_fiat != null ? Number(existing.amount_fiat) : undefined;
+                const expectedFiat = existing ? expectedLencoAmount(existing) : undefined;
                 const isVerified = await isLencoDepositPaid(reference, expectedFiat);
                 if (!isVerified) {
                     console.log(`Lenco webhook: reference ${reference} not yet successful or unverified, skipping`);
@@ -137,28 +158,18 @@ export async function POST(request: Request) {
 
             const tx = await claimPendingCollectionTransaction(reference);
             if (!tx) {
+                // Another worker claimed — resume BUY if needed.
+                if (existing && String(existing.type) === 'BUY') {
+                    await tryCompleteBuyDeposit(reference, { skipLencoVerification: skipVerification });
+                }
                 return NextResponse.json({ received: true });
             }
 
             const txType = String(tx.type);
             if (txType === 'CHECKOUT_MM') {
-                const result = await creditCheckoutMobileMoney(tx, reference);
-                if (!result.ok && result.reason === 'waiting_trustline') {
-                    await sql`
-                        UPDATE transactions
-                        SET status = 'PENDING', updated_at = NOW()
-                        WHERE id = ${String(tx.id)} AND status = 'PROCESSING'
-                    `;
-                }
+                await creditCheckoutMobileMoney(tx, reference);
             } else if (txType === 'BUY') {
-                const result = await creditBuyDeposit(tx, reference);
-                if (!result.ok && result.reason === 'waiting_trustline') {
-                    await sql`
-                        UPDATE transactions
-                        SET status = 'PENDING', updated_at = NOW()
-                        WHERE id = ${String(tx.id)} AND status = 'PROCESSING'
-                    `;
-                }
+                await creditBuyDeposit(tx, reference);
             }
         }
 

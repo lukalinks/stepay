@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { getMarket, marketToJson } from '@/lib/markets';
-import { getRates, getFees, getLimits } from '@/lib/rates';
+import { getRates, getFees, getLimits, getRatesSource } from '@/lib/rates';
+import { getRateSpreadPercent, liveRatesEnabled } from '@/lib/live-rates';
 import { getUserCountryCode } from '@/lib/user-market';
 
 /** Public endpoint — rates, fees, limits, and market metadata for the user's country. */
@@ -16,6 +17,9 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 market: marketToJson(market),
+                source: getRatesSource(),
+                live: liveRatesEnabled(),
+                spreadPercent: getRateSpreadPercent(),
                 rates: {
                     xlm: { buy: rates.xlm_buy, sell: rates.xlm_sell },
                     usdc: { buy: rates.usdc_buy, sell: rates.usdc_sell },
@@ -47,6 +51,8 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 market: marketToJson(market),
+                source: 'manual',
+                live: liveRatesEnabled(),
                 rates: { xlm: { buy: 3.5, sell: 3.5 }, usdc: { buy: 25, sell: 25 } },
                 fees: { buyPercent: 0, sellPercent: 0 },
                 limits: {

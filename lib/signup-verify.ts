@@ -1,9 +1,10 @@
 import bcrypt from 'bcrypt';
 import { sql } from '@/lib/db';
+import { canSignupWithEmail } from '@/lib/access-control';
 import { generateConfirmCode, hashConfirmCode } from '@/lib/wallet-crypto';
 import { isValidStellarPublicKey } from '@/lib/wallet-custody';
 
-const SIGNUP_TTL_MS = 10 * 60 * 1000;
+const SIGNUP_TTL_MS = 30 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
 type SignupVerificationRow = {
@@ -57,7 +58,11 @@ export async function verifySignupAndCreateUser(
     signupId: string,
     confirmCode: string,
     walletPublic: string,
-    options?: { walletBackupEnc?: string | null; cloudBackupEnabled?: boolean }
+    options?: {
+        walletBackupEnc?: string | null;
+        cloudBackupEnabled?: boolean;
+        inviteToken?: string | null;
+    }
 ): Promise<{ userId: string; email: string }> {
     const publicKey = walletPublic.trim();
     if (!isValidStellarPublicKey(publicKey)) {
@@ -106,6 +111,13 @@ export async function verifySignupAndCreateUser(
 
         const trimmedEmail = row.email.trim();
 
+        const access = await canSignupWithEmail(trimmedEmail, options?.inviteToken ?? null);
+        if (!access.allowed) {
+            throw new Error(
+                'Stepay is in closed beta. Use your invite link, or join the waitlist to be notified when we launch.'
+            );
+        }
+
         const existingEmail = await tx`
             SELECT id FROM users WHERE lower(trim(email)) = lower(${trimmedEmail}) LIMIT 1
         `;
@@ -122,7 +134,10 @@ export async function verifySignupAndCreateUser(
         }
 
         const cloudBackupEnabled = options?.cloudBackupEnabled !== false;
-        const backupEnc = cloudBackupEnabled && options?.walletBackupEnc?.trim() ? options.walletBackupEnc.trim() : null;
+        const backupEnc =
+            cloudBackupEnabled && options?.walletBackupEnc?.trim()
+                ? options.walletBackupEnc.trim()
+                : null;
 
         const inserted = await tx`
             INSERT INTO users (
@@ -135,7 +150,8 @@ export async function verifySignupAndCreateUser(
                 wallet_secret_enc,
                 wallet_backup_enc,
                 wallet_backup_enabled,
-                country_code
+                country_code,
+                terms_accepted_at
             ) VALUES (
                 ${trimmedEmail},
                 null,
@@ -146,13 +162,28 @@ export async function verifySignupAndCreateUser(
                 null,
                 ${backupEnc},
                 ${cloudBackupEnabled},
-                ${row.country_code}
+                ${row.country_code},
+                NOW()
             )
             RETURNING id, email
         `;
         const user = inserted[0] as { id: string; email: string | null } | undefined;
         if (!user) {
             throw new Error('Could not create your account. Please try again.');
+        }
+
+        // Accept pending invite in the same transaction.
+        const inviteRows = await tx`
+            UPDATE invites
+            SET status = 'accepted',
+                accepted_at = NOW(),
+                accepted_user_id = ${user.id}
+            WHERE lower(trim(email)) = lower(${trimmedEmail}) AND status = 'pending'
+            RETURNING id
+        `;
+        const inviteId = (inviteRows[0] as { id: string } | undefined)?.id;
+        if (inviteId) {
+            await tx`UPDATE users SET invite_id = ${inviteId} WHERE id = ${user.id}`;
         }
 
         await tx`DELETE FROM signup_verifications WHERE id = ${signupId}`;

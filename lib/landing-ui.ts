@@ -141,6 +141,26 @@ export const landing = {
     borderBottom: `1px solid ${BRAND.border}`,
     bgcolor: alpha('#fff', 0.02),
   } satisfies SxProps<Theme>,
+
+  gradientText: {
+    background: `linear-gradient(135deg, ${BRAND.accentLight} 0%, ${ACCENT} 45%, ${BRAND.accentHover} 100%)`,
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  } satisfies SxProps<Theme>,
+
+  heroGrid: {
+    pointerEvents: 'none' as const,
+    position: 'absolute' as const,
+    inset: 0,
+    backgroundImage: `
+      linear-gradient(${alpha('#fff', 0.03)} 1px, transparent 1px),
+      linear-gradient(90deg, ${alpha('#fff', 0.03)} 1px, transparent 1px)
+    `,
+    backgroundSize: '64px 64px',
+    maskImage: 'radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%)',
+    WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%)',
+  } satisfies SxProps<Theme>,
 };
 
 export const landingGlowSx = {

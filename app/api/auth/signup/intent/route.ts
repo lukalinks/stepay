@@ -4,9 +4,10 @@ import { deliverConfirmCode } from '@/lib/confirm-delivery';
 import { assertRateLimit, RateLimitError, rateLimitKey, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/signer';
 import { createSignupVerification } from '@/lib/signup-verify';
-import { isSupportedCountry, resolveCountryCode } from '@/lib/markets';
+import { isSelectableCountry, normalizeCountryCode } from '@/lib/markets';
 import { validatePassword } from '@/lib/password-policy';
 import { clearAllSessionCookies } from '@/lib/session-cookies';
+import { canSignupWithEmail } from '@/lib/access-control';
 
 export async function POST(request: Request) {
     try {
@@ -14,9 +15,17 @@ export async function POST(request: Request) {
         const email = typeof body.email === 'string' ? body.email.trim() : '';
         const password = typeof body.password === 'string' ? body.password : '';
         const countryCodeRaw = body.countryCode;
+        const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
+        const acceptedTerms = body.acceptedTerms === true;
 
         if (!email || !email.includes('@')) {
             return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 });
+        }
+        if (!acceptedTerms) {
+            return NextResponse.json(
+                { error: 'Please accept the Terms of Service and Privacy Policy to continue.' },
+                { status: 400 }
+            );
         }
         const passwordErr = validatePassword(password);
         if (passwordErr) {
@@ -24,9 +33,9 @@ export async function POST(request: Request) {
         }
 
         const countryCode =
-            typeof countryCodeRaw === 'string' && isSupportedCountry(countryCodeRaw)
+            typeof countryCodeRaw === 'string' && isSelectableCountry(countryCodeRaw)
                 ? countryCodeRaw.trim().toUpperCase()
-                : resolveCountryCode(null);
+                : normalizeCountryCode(null);
 
         const ip = clientIp(request) || 'unknown';
         await assertRateLimit(rateLimitKey('signup-intent', [ip]), 10, 60 * 60 * 1000);
@@ -39,6 +48,18 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 { error: 'An account with this email already exists. Try signing in.' },
                 { status: 400 }
+            );
+        }
+
+        const access = await canSignupWithEmail(email, inviteToken || null);
+        if (!access.allowed) {
+            return NextResponse.json(
+                {
+                    waitlist: true,
+                    error:
+                        "Stepay is in closed beta and not publicly launched yet. Join the waitlist and we'll notify you when it's available.",
+                },
+                { status: 403 }
             );
         }
 

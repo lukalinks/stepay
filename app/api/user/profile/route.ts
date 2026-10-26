@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getUserIdFromRequest } from '@/lib/auth';
-import { getMarket, isSupportedCountry, marketToJson } from '@/lib/markets';
+import { getMarket, isSelectableCountry, marketToJson } from '@/lib/markets';
 import {
     formatPhoneE164ForMarket,
     isValidPhoneForMarket,
@@ -19,9 +19,9 @@ export async function GET(request: Request) {
         }
 
         const userRows = await sql`
-            SELECT email, full_name, phone_number, address, id_document_type, id_document_number,
+            SELECT id, email, full_name, phone_number, address, id_document_type, id_document_number,
                    wallet_public, wallet_secret, wallet_secret_enc,
-                   wallet_backup_enc, wallet_backup_enabled, country_code
+                   wallet_backup_enc, wallet_backup_enabled, country_code, avatar_url
             FROM users WHERE id = ${userId} LIMIT 1
         `;
         const user = userRows[0] as Record<string, unknown> | undefined;
@@ -44,6 +44,16 @@ export async function GET(request: Request) {
         const countryCode = String(user.country_code ?? 'ZM');
         const market = getMarket(countryCode);
 
+        const completedTx = await sql`
+            SELECT 1 FROM transactions
+            WHERE user_id = ${userId} AND status = 'COMPLETED' AND type IN ('BUY', 'CHECKOUT_MM')
+            LIMIT 1
+        `;
+
+        const avatarUrl = user.avatar_url
+            ? `${String(user.avatar_url)}${String(user.avatar_url).includes('?') ? '&' : '?'}v=${userId.slice(0, 8)}`
+            : null;
+
         return NextResponse.json({
             userId,
             email: user.email,
@@ -59,7 +69,9 @@ export async function GET(request: Request) {
             countryCode: market.countryCode,
             currency: market.currency,
             market: marketToJson(market),
+            avatarUrl,
             isProfileComplete,
+            hasCompletedDeposit: (completedTx as unknown[]).length > 0,
         });
     } catch (error) {
         console.error('Profile GET Error:', error);
@@ -85,7 +97,7 @@ export async function PATCH(request: Request) {
 
         const existingRows = await sql`SELECT country_code FROM users WHERE id = ${userId} LIMIT 1`;
         const existingCountry = String(existingRows[0]?.country_code ?? 'ZM');
-        const countryCode = countryCodeRaw && isSupportedCountry(countryCodeRaw) ? countryCodeRaw : existingCountry;
+        const countryCode = countryCodeRaw && isSelectableCountry(countryCodeRaw) ? countryCodeRaw : existingCountry;
         const market = getMarket(countryCode);
 
         if (fullName.length < 2 || fullName.length > 100) {
@@ -93,16 +105,16 @@ export async function PATCH(request: Request) {
         }
 
         const phoneDigits = phone.replace(/\s+/g, '').replace(/^0/, '').replace(/\D/g, '');
-        if (phoneDigits.length < 9) {
+        if (phoneDigits.length < 8) {
             return NextResponse.json(
-                { error: `Enter a valid mobile money number for ${market.countryName}.` },
+                { error: `Enter a valid phone number for ${market.countryName}.` },
                 { status: 400 }
             );
         }
 
         if (!isValidPhoneForMarket(phone, countryCode)) {
             return NextResponse.json(
-                { error: `Enter a valid mobile money number for ${market.countryName}.` },
+                { error: `Enter a valid phone number for ${market.countryName}.` },
                 { status: 400 }
             );
         }

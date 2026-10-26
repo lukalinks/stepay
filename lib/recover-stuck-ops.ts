@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db';
 import { PLATFORM_WALLET_PUBLIC } from '@/lib/constants';
+import { tryCompleteBuyDeposit } from '@/lib/complete-buy-deposit';
 import { coerceIntentPayload } from '@/lib/intent-payload';
 import { LencoService } from '@/lib/lenco';
 import { parseSellPayload } from '@/lib/operations/sell';
@@ -20,6 +21,7 @@ type StuckTxRow = {
     amount_xlm: number;
     asset: string;
     wallet_public: string;
+    tx_hash?: string | null;
 };
 
 async function findInboundHash(memo: string): Promise<string | null> {
@@ -55,34 +57,39 @@ async function findSwapIntentPayload(userId: string, reference: string): Promise
     return coerceIntentPayload(row.payload);
 }
 
-export async function tryCompleteStuckSell(tx: StuckTxRow): Promise<'completed' | 'pending' | 'failed'> {
+export async function tryCompleteStuckSell(
+    tx: StuckTxRow
+): Promise<'completed' | 'pending' | 'failed' | 'payout_failed'> {
     const memo = tx.deposit_memo ? String(tx.deposit_memo) : '';
     if (!memo) return 'pending';
 
-    const inboundHash = await findInboundHash(memo);
+    // Prefer stored hash when crypto already landed (PAYOUT_FAILED retries).
+    const inboundHash =
+        String(tx.status) === 'PAYOUT_FAILED' && tx.tx_hash
+            ? String(tx.tx_hash)
+            : await findInboundHash(memo);
     if (!inboundHash) return 'pending';
 
     const intentPayload = await findSellIntentPayload(tx.user_id, tx.id);
     if (!intentPayload) return 'pending';
 
-    const plan = intentPayload._clientPlan as Record<string, unknown> | undefined;
-    if (!plan) return 'pending';
-
     const sellPayload = parseSellPayload(intentPayload);
     const fromAsset = sellPayload.asset;
     const amountStr = Number(tx.amount_xlm).toFixed(7);
 
-    try {
-        await verifyOutgoingPayment({
-            txHash: inboundHash,
-            sourcePublic: tx.wallet_public,
-            destination: PLATFORM_WALLET_PUBLIC,
-            amount: amountStr,
-            asset: fromAsset,
-            memo,
-        });
-    } catch {
-        return 'pending';
+    if (String(tx.status) !== 'PAYOUT_FAILED') {
+        try {
+            await verifyOutgoingPayment({
+                txHash: inboundHash,
+                sourcePublic: tx.wallet_public,
+                destination: PLATFORM_WALLET_PUBLIC,
+                amount: amountStr,
+                asset: fromAsset,
+                memo,
+            });
+        } catch {
+            return 'pending';
+        }
     }
 
     const amountFiat = Number(tx.amount_fiat);
@@ -100,16 +107,18 @@ export async function tryCompleteStuckSell(tx: StuckTxRow): Promise<'completed' 
         } catch (err) {
             console.error('recover stuck sell payout:', err);
             await sql`
-                UPDATE transactions SET status = 'COMPLETED', tx_hash = ${inboundHash}
-                WHERE id = ${tx.id} AND status IN ('PENDING', 'PROCESSING')
+                UPDATE transactions
+                SET status = 'PAYOUT_FAILED', tx_hash = ${inboundHash}, updated_at = NOW()
+                WHERE id = ${tx.id}
+                  AND status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED')
             `;
-            return 'completed';
+            return 'payout_failed';
         }
     }
 
     await sql`
-        UPDATE transactions SET status = 'COMPLETED', tx_hash = ${inboundHash}
-        WHERE id = ${tx.id} AND status IN ('PENDING', 'PROCESSING')
+        UPDATE transactions SET status = 'COMPLETED', tx_hash = ${inboundHash}, updated_at = NOW()
+        WHERE id = ${tx.id} AND status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED')
     `;
     return 'completed';
 }
@@ -177,12 +186,21 @@ export async function tryCompleteUserStuckOps(userId: string): Promise<Array<{ i
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await sql`
         SELECT t.id, t.user_id, t.type, t.status, t.reference, t.deposit_memo,
-               t.amount_fiat, t.amount_xlm, t.asset, u.wallet_public
+               t.amount_fiat, t.amount_xlm, t.asset, t.tx_hash, u.wallet_public
         FROM transactions t
         JOIN users u ON u.id = t.user_id
         WHERE t.user_id = ${userId}
-          AND t.type IN ('SELL', 'SWAP')
-          AND t.status IN ('PENDING', 'PROCESSING')
+          AND (
+            (t.type = 'SWAP' AND t.status IN ('PENDING', 'PROCESSING'))
+            OR (t.type = 'SELL' AND t.status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED'))
+            OR (
+              t.type = 'BUY'
+              AND (
+                t.status IN ('PENDING', 'PROCESSING')
+                OR (t.status = 'FAILED' AND t.tx_hash IS NULL)
+              )
+            )
+          )
           AND t.created_at >= ${since}
         ORDER BY t.created_at ASC
         LIMIT 10
@@ -190,8 +208,16 @@ export async function tryCompleteUserStuckOps(userId: string): Promise<Array<{ i
 
     const results: Array<{ id: string; type: string; status: string }> = [];
     for (const row of rows as unknown as StuckTxRow[]) {
-        let status: 'completed' | 'pending' | 'failed' = 'pending';
-        if (row.type === 'SELL') {
+        let status: 'completed' | 'pending' | 'failed' | 'payout_failed' = 'pending';
+        if (row.type === 'BUY') {
+            const outcome = await tryCompleteBuyDeposit(row.reference, { userId });
+            status =
+                outcome.status === 'completed'
+                    ? 'completed'
+                    : outcome.status === 'failed'
+                      ? 'failed'
+                      : 'pending';
+        } else if (row.type === 'SELL') {
             status = await tryCompleteStuckSell(row);
         } else if (row.type === 'SWAP') {
             status = await tryCompleteStuckSwap(row);
@@ -204,20 +230,37 @@ export async function tryCompleteUserStuckOps(userId: string): Promise<Array<{ i
 async function loadStuckTxRow(txId: string): Promise<StuckTxRow | null> {
     const rows = await sql`
         SELECT t.id, t.user_id, t.type, t.status, t.reference, t.deposit_memo,
-               t.amount_fiat, t.amount_xlm, t.asset, u.wallet_public
+               t.amount_fiat, t.amount_xlm, t.asset, t.tx_hash, u.wallet_public
         FROM transactions t
         JOIN users u ON u.id = t.user_id
         WHERE t.id = ${txId}
-          AND t.type IN ('SELL', 'SWAP')
-          AND t.status IN ('PENDING', 'PROCESSING')
+          AND (
+            (t.type = 'SWAP' AND t.status IN ('PENDING', 'PROCESSING'))
+            OR (t.type = 'SELL' AND t.status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED'))
+            OR (
+              t.type = 'BUY'
+              AND (
+                t.status IN ('PENDING', 'PROCESSING')
+                OR (t.status = 'FAILED' AND t.tx_hash IS NULL)
+              )
+            )
+          )
         LIMIT 1
     `;
     return (rows[0] as StuckTxRow | undefined) ?? null;
 }
 
-export async function tryCompleteStuckTxById(txId: string): Promise<'completed' | 'pending' | 'failed' | 'not_found'> {
+export async function tryCompleteStuckTxById(
+    txId: string
+): Promise<'completed' | 'pending' | 'failed' | 'payout_failed' | 'not_found'> {
     const row = await loadStuckTxRow(txId);
     if (!row) return 'not_found';
+    if (row.type === 'BUY') {
+        const outcome = await tryCompleteBuyDeposit(row.reference, { userId: row.user_id });
+        if (outcome.status === 'completed') return 'completed';
+        if (outcome.status === 'failed') return 'failed';
+        return 'pending';
+    }
     if (row.type === 'SELL') return tryCompleteStuckSell(row);
     if (row.type === 'SWAP') return tryCompleteStuckSwap(row);
     return 'pending';
@@ -227,11 +270,20 @@ export async function listStuckTransactions(limit = 50): Promise<StuckTxRow[]> {
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await sql`
         SELECT t.id, t.user_id, t.type, t.status, t.reference, t.deposit_memo,
-               t.amount_fiat, t.amount_xlm, t.asset, u.wallet_public
+               t.amount_fiat, t.amount_xlm, t.asset, t.tx_hash, u.wallet_public
         FROM transactions t
         JOIN users u ON u.id = t.user_id
-        WHERE t.type IN ('SELL', 'SWAP')
-          AND t.status IN ('PENDING', 'PROCESSING')
+        WHERE (
+            (t.type = 'SWAP' AND t.status IN ('PENDING', 'PROCESSING'))
+            OR (t.type = 'SELL' AND t.status IN ('PENDING', 'PROCESSING', 'PAYOUT_FAILED'))
+            OR (
+              t.type = 'BUY'
+              AND (
+                t.status IN ('PENDING', 'PROCESSING')
+                OR (t.status = 'FAILED' AND t.tx_hash IS NULL)
+              )
+            )
+          )
           AND t.created_at >= ${since}
         ORDER BY t.created_at ASC
         LIMIT ${limit}
@@ -243,8 +295,16 @@ export async function retryAllStuckOps(): Promise<Array<{ id: string; type: stri
     const stuck = await listStuckTransactions(25);
     const results: Array<{ id: string; type: string; status: string }> = [];
     for (const row of stuck) {
-        let status: 'completed' | 'pending' | 'failed' = 'pending';
-        if (row.type === 'SELL') status = await tryCompleteStuckSell(row);
+        let status: 'completed' | 'pending' | 'failed' | 'payout_failed' = 'pending';
+        if (row.type === 'BUY') {
+            const outcome = await tryCompleteBuyDeposit(row.reference, { userId: row.user_id });
+            status =
+                outcome.status === 'completed'
+                    ? 'completed'
+                    : outcome.status === 'failed'
+                      ? 'failed'
+                      : 'pending';
+        } else if (row.type === 'SELL') status = await tryCompleteStuckSell(row);
         else if (row.type === 'SWAP') status = await tryCompleteStuckSwap(row);
         results.push({ id: row.id, type: row.type, status });
     }
